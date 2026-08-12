@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPI Interactive Lab</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --bg:#F5F7FA; --panel:#FFFFFF; --border:#E1E5EC; --border-strong:#C7CEDA;
+  --navy:#16233F; --navy-2:#2A3A5C; --muted:#697184;
+  --mosi:#2F6FED; --mosi-dim:#B9D2FB;
+  --miso:#1FA971; --miso-dim:#BFEBD9;
+  --sclk:#7B5CE0; --sclk-dim:#D6CCF7;
+  --cs:#D8590C; --cs-dim:#FBDCBE;
+  --active:#F2994A; --active-dim:#FCE0C4;
+  --err:#E5484D; --err-dim:#FBD3D4;
+  --idle:#AEB4C2; --radius:10px; --shadow:0 1px 2px rgba(22,35,63,0.06);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{background:var(--bg);color:var(--navy);font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+#app{max-width:1300px;margin:0 auto;padding:20px 20px 60px;}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--navy);border-radius:var(--radius);color:#fff;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand .mark{width:30px;height:30px;border-radius:6px;background:linear-gradient(180deg,var(--mosi),var(--sclk));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0;}
+.brand h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px;}
+.brand p{font-size:11.5px;margin:1px 0 0;color:#B7C0D6;}
+.mode-toggle{display:flex;background:rgba(255,255,255,0.08);border-radius:999px;padding:3px;gap:2px;}
+.mode-toggle button{border:none;background:transparent;color:#C6CEE2;font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 14px;border-radius:999px;cursor:pointer;transition:.15s;}
+.mode-toggle button.active{background:#fff;color:var(--navy);}
+
+.layout{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;}
+@media (max-width:1000px){.layout{grid-template-columns:1fr;}}
+
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:16px;}
+.panel h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 12px;font-weight:600;display:flex;align-items:center;justify-content:space-between;}
+.badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--border);display:inline-flex;align-items:center;gap:5px;transition:color .2s ease,border-color .2s ease;}
+.badge #busPulse{font-size:8px;}
+
+#spiSvg{width:100%;height:auto;display:block;background:linear-gradient(180deg,#FBFCFE,#F5F7FA);border-radius:8px;border:1px solid var(--border);}
+.node-label{cursor:pointer;transition:filter .15s ease;}
+.node-label:hover{filter:brightness(1.03);}
+.node-label:hover rect.dev-body{stroke-width:2;}
+
+.controls-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.ctl-btn{border:1px solid var(--border-strong);background:#fff;color:var(--navy);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:background .12s,transform .08s;}
+.ctl-btn:hover{background:var(--bg);}
+.ctl-btn:active{transform:scale(0.92);}
+.ctl-btn.primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+.ctl-btn.primary:hover{background:var(--navy-2);}
+.ctl-btn:disabled{opacity:.35;cursor:default;}
+.speed-wrap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:auto;}
+.speed-wrap input{width:80px;}
+
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.preset-btn{flex:1;min-width:130px;border:1px solid var(--border);background:var(--bg);color:var(--navy-2);padding:8px 10px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;text-align:left;transition:background .15s,transform .1s;}
+.preset-btn:hover{transform:translateY(-1px);}
+.preset-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.preset-btn small{display:block;font-weight:400;color:var(--muted);font-size:10.5px;margin-top:1px;}
+.preset-btn.active small{color:#B7C0D6;}
+
+.step-track{height:5px;border-radius:99px;background:var(--border);overflow:hidden;margin-top:10px;}
+.step-track-fill{height:100%;background:linear-gradient(90deg,var(--mosi),var(--miso));border-radius:99px;transition:width .25s cubic-bezier(.4,0,.2,1);}
+.mini-caption{font-size:10.5px;color:var(--muted);display:flex;justify-content:space-between;margin-top:4px;}
+
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:12.5px;}
+.info-grid .k{color:var(--muted);}
+.info-grid .v{font-weight:600;font-family:'IBM Plex Mono',monospace;}
+.phase-pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;animation:pillPop .3s cubic-bezier(.34,1.56,.64,1) both;}
+
+.duplex-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+.duplex-box{border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
+.duplex-box .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;}
+.duplex-box .val{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;margin-top:2px;}
+
+.explain-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.55;color:var(--navy-2);min-height:44px;}
+.explain-title{font-weight:700;color:var(--navy);margin-bottom:3px;font-size:12.5px;}
+.explain-deep{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-strong);color:var(--muted);font-size:12.3px;display:none;}
+.explain-deep.show{display:block;}
+.link-btn{background:none;border:none;color:var(--mosi);font-size:12px;font-weight:600;cursor:pointer;padding:0;margin-top:6px;}
+.anim-fade{animation:fadeSlideUp .28s ease both;}
+
+.byte-row{display:flex;gap:5px;margin:8px 0;flex-wrap:wrap;}
+.bit-box{width:26px;height:30px;border:1.5px solid var(--border-strong);border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--muted);background:#fff;transition:border-color .18s,background .18s,color .18s;}
+.bit-box.mosi-active{border-color:var(--mosi);background:var(--mosi-dim);color:#0C447C;animation:popIn .3s cubic-bezier(.34,1.56,.64,1) both;}
+.bit-box.done{border-color:var(--border-strong);color:var(--muted);}
+.byte-label{font-size:10.5px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px;}
+
+#waveCanvas{width:100%;height:190px;display:block;border-radius:8px;border:1px solid var(--border);background:#fff;}
+
+.field{margin-bottom:10px;}
+.field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600;}
+.field select,.field input{width:100%;border:1px solid var(--border-strong);border-radius:7px;padding:7px 9px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#fff;color:var(--navy);}
+.field select{font-family:'IBM Plex Sans',sans-serif;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
+.mode-card{border:1px solid var(--border-strong);border-radius:8px;padding:7px 8px;font-size:11px;cursor:pointer;text-align:center;transition:background .15s,border-color .15s;}
+.mode-card.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.mode-card b{display:block;font-size:12.5px;}
+
+.dev-mini{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12px;}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot.gray{background:var(--idle);} .dot.green{background:var(--miso);} .dot.orange{background:var(--cs);}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:10px;}
+.legend span{display:inline-flex;align-items:center;gap:5px;}
+.legend .sw{width:10px;height:10px;border-radius:3px;}
+
+.pullup-note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.pullup-note b{color:var(--navy-2);}
+.footer-note{text-align:center;font-size:11.5px;color:var(--muted);margin-top:6px;}
+
+@keyframes fadeSlideUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+@keyframes popIn{0%{transform:scale(.55);opacity:0;}60%{transform:scale(1.12);opacity:1;}100%{transform:scale(1);}}
+@keyframes pillPop{0%{transform:scale(.85);opacity:0;}50%{transform:scale(1.05);opacity:1;}100%{transform:scale(1);opacity:1;}}
+@keyframes softBlink{0%,100%{opacity:1;}50%{opacity:.35;}}
+#busPulse.live{animation:softBlink 1.1s ease-in-out infinite;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">SPI</div>
+      <div>
+        <h1>SPI Interactive Lab</h1>
+        <p>Watch a controller select a device, clock bits across separate lines, and exchange data in both directions at once.</p>
+      </div>
+    </div>
+    <div class="mode-toggle" id="modeToggle">
+      <button data-mode="beginner" class="active">Beginner</button>
+      <button data-mode="engineer">Engineer</button>
+    </div>
+  </div>
+
+  <div class="panel" id="analogyPanel" style="background:linear-gradient(180deg,#F3F6FF,#FFFFFF);border-color:var(--mosi-dim);">
+    <h2>Think of it like two conveyor belts and a spotlight <button class="link-btn" id="analogyToggle" style="float:right;">Hide</button></h2>
+    <div id="analogyBody" style="font-size:13px;line-height:1.65;color:var(--navy-2);">
+      <b style="color:var(--navy)">CS (Chip Select) = the spotlight.</b> The controller shines the spotlight on exactly one device at a time. Only the device standing in the spotlight (CS LOW) is allowed to talk &mdash; everyone else stays silent, even though they hear the same clock.<br>
+      <b style="color:var(--navy)">SCLK = the conductor's metronome.</b> It ticks at a steady rate so both sides know exactly when to hand over the next bit &mdash; no bit moves except on a tick.<br>
+      <b style="color:var(--navy)">MOSI and MISO = two separate conveyor belts running at once</b> &mdash; one carrying boxes from the controller to the device (MOSI), the other carrying boxes back from the device to the controller (MISO), moving on the very same ticks. That's <b>full-duplex</b>: both belts run together, not one after another.
+      <div style="margin-top:8px;font-size:12px;color:var(--muted)">Once this picture makes sense, press play and watch the same story happen on the real CS / SCLK / MOSI / MISO lines.</div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:130px;background:#fff;border:1px solid var(--cs-dim);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10.5px;font-weight:700;color:var(--cs);text-transform:uppercase;">CS &mdash; spotlight</div>
+          <div style="font-size:11.5px;color:var(--navy-2);margin-top:2px;">Picks which device is "on stage".</div>
+        </div>
+        <div style="flex:1;min-width:130px;background:#fff;border:1px solid var(--sclk-dim);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10.5px;font-weight:700;color:var(--sclk);text-transform:uppercase;">SCLK &mdash; metronome</div>
+          <div style="font-size:11.5px;color:var(--navy-2);margin-top:2px;">Times every single bit.</div>
+        </div>
+        <div style="flex:1;min-width:130px;background:#fff;border:1px solid var(--mosi-dim);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10.5px;font-weight:700;color:var(--mosi);text-transform:uppercase;">MOSI &mdash; outgoing belt</div>
+          <div style="font-size:11.5px;color:var(--navy-2);margin-top:2px;">Controller &rarr; device.</div>
+        </div>
+        <div style="flex:1;min-width:130px;background:#fff;border:1px solid var(--miso-dim);border-radius:8px;padding:8px 10px;">
+          <div style="font-size:10.5px;font-weight:700;color:var(--miso);text-transform:uppercase;">MISO &mdash; return belt</div>
+          <div style="font-size:11.5px;color:var(--navy-2);margin-top:2px;">Device &rarr; controller.</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;">Tip: click CS, SCLK, MOSI or MISO directly on the diagram below any time for this explanation again.</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div class="panel">
+        <h2>Signal lines <span class="badge" id="busStateBadge"><span id="busPulse">&#9679;</span> CS IDLE (HIGH)</span></h2>
+        <svg id="spiSvg" viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--cs)"></i>CS &mdash; chip select</span>
+          <span><i class="sw" style="background:var(--sclk)"></i>SCLK &mdash; clock</span>
+          <span><i class="sw" style="background:var(--mosi)"></i>MOSI &mdash; controller&rarr;target</span>
+          <span><i class="sw" style="background:var(--miso)"></i>MISO &mdash; target&rarr;controller</span>
+          <span><i class="sw" style="background:var(--err)"></i>error / mismatch</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Controls</h2>
+        <div class="preset-row" id="presetRow"></div>
+        <div class="controls-row" style="margin-top:10px;">
+          <button class="ctl-btn" id="btnRestart" title="Restart">&#8634;</button>
+          <button class="ctl-btn" id="btnStepBack" title="Step back">&#9664;</button>
+          <button class="ctl-btn primary" id="btnPlay" title="Play/Pause">&#9654;</button>
+          <button class="ctl-btn" id="btnStepFwd" title="Step forward">&#9654;&#9654;</button>
+          <div class="speed-wrap"><span>Speed</span><input type="range" id="speedSlider" min="1" max="4" step="1" value="2"></div>
+        </div>
+        <div class="step-track"><div class="step-track-fill" id="stepFill" style="width:0%"></div></div>
+        <div class="mini-caption"><span id="stepCaption">Step 0 of 0</span><span id="stepPct">0%</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>SPI mode &mdash; CPOL / CPHA <button class="link-btn" id="modeExplainBtn">What is this?</button></h2>
+        <div class="mode-grid" id="modeGrid"></div>
+        <div id="modeExplainBody" style="display:none;font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:6px;">
+          <b style="color:var(--navy-2)">CPOL</b> sets the clock's idle level (0 = idle LOW, 1 = idle HIGH). <b style="color:var(--navy-2)">CPHA</b> sets which clock edge data is sampled on (0 = first edge, 1 = second edge). Together they give four SPI modes &mdash; the controller and target must agree on the same mode or bits get sampled at the wrong moment.
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Live logic analyzer</h2>
+        <canvas id="waveCanvas"></canvas>
+      </div>
+
+      <div class="panel" id="internalPanel" style="display:none;">
+        <h2>Internal hardware view <span class="badge">engineer mode</span></h2>
+        <div id="internalContent" style="font-size:12.5px;line-height:1.6;color:var(--navy-2);"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Current transaction</h2>
+        <div class="info-grid">
+          <div class="k">Transaction</div><div class="v" id="infoTx">&mdash;</div>
+          <div class="k">Target</div><div class="v" id="infoTarget">&mdash;</div>
+          <div class="k">Chip select</div><div class="v" id="infoCS">&mdash;</div>
+          <div class="k">SPI mode</div><div class="v" id="infoMode">&mdash;</div>
+          <div class="k">Phase</div><div class="v" id="infoPhase"><span class="phase-pill" style="background:var(--bg);color:var(--muted)">IDLE</span></div>
+          <div class="k">Bus</div><div class="v" id="infoBus">IDLE</div>
+        </div>
+        <div class="duplex-row">
+          <div class="duplex-box"><div class="lbl" style="color:var(--mosi)">MOSI now</div><div class="val" id="dupMosi">&mdash;</div></div>
+          <div class="duplex-box"><div class="lbl" style="color:var(--miso)">MISO now</div><div class="val" id="dupMiso">&mdash;</div></div>
+        </div>
+        <div id="byteJourney"></div>
+      </div>
+
+      <div class="panel">
+        <h2>What's happening <button class="link-btn" id="explainDeepBtn">Explain deeper</button></h2>
+        <div class="explain-box">
+          <div class="explain-title" id="explainTitle">Ready</div>
+          <div id="explainBody">Choose a transaction and press play to watch the controller talk to a device over SPI.</div>
+          <div class="explain-deep" id="explainDeep"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Configure transaction</h2>
+        <div class="field">
+          <label>Target device (chip select)</label>
+          <select id="cfgTarget"></select>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Command byte</label><input type="text" id="cfgCmd" value="0x03"></div>
+          <div class="field"><label>Data to write</label><input type="text" id="cfgData" value="0x5A"></div>
+        </div>
+        <div class="field" id="cfgAddrWrap"><label>Address (24-bit)</label><input type="text" id="cfgAddr" value="0x001000"></div>
+        <div class="field-row">
+          <div class="field"><label>Bit order</label><select id="cfgOrder"><option value="msb" selected>MSB first</option><option value="lsb">LSB first</option></select></div>
+          <div class="field"><label>Clock frequency</label><select id="cfgFreq"><option value="1">1 MHz</option><option value="10" selected>10 MHz</option><option value="20">20 MHz</option></select></div>
+        </div>
+        <div class="field">
+          <label>Simulate</label>
+          <select id="cfgError">
+            <option value="none">Normal transaction</option>
+            <option value="wrong-cs">Wrong chip select &mdash; device never activates</option>
+            <option value="mode-mismatch">SPI mode mismatch &mdash; wrong sampling edge</option>
+            <option value="miso-disconnected">MISO disconnected &mdash; no data returns</option>
+          </select>
+        </div>
+        <button class="ctl-btn primary" style="width:100%;border-radius:8px;font-size:12.5px;font-weight:600;" id="btnApplyConfig">Build &amp; run transaction</button>
+      </div>
+
+      <div class="panel" id="inspectorPanel">
+        <h2>Inspector</h2>
+        <div id="inspectorBody" style="font-size:12.5px;line-height:1.6;color:var(--navy-2);">Click the controller, a device, or CS / SCLK / MOSI / MISO on the diagram to inspect it.</div>
+      </div>
+    </div>
+  </div>
+  <p class="footer-note">Behavior shown is representative of common SPI controller/target implementations &mdash; exact register layout varies by vendor.</p>
+</div>
+
+<script>
+(function(){
+
+/* ============================== DEVICE MODEL ============================== */
+var CONTROLLER = {id:'mcu', name:'MCU Controller', short:'MCU'};
+var TARGETS = [
+  {id:'flash', name:'SPI Flash', short:'FLASH', kind:'flash', csLabel:'CS1',
+    registers:[{name:'STATUS',val:0x00},{name:'MEM[0x001000]',val:0x5A},{name:'JEDEC ID',val:0xEF4016}]},
+  {id:'sensor', name:'Accel Sensor', short:'IMU', kind:'sensor', csLabel:'CS2',
+    registers:[{name:'WHO_AM_I',val:0x68},{name:'ACCEL_X',val:0x1A},{name:'CONFIG',val:0x03}]},
+  {id:'display', name:'Display Ctrl', short:'DISP', kind:'display', csLabel:'CS3',
+    registers:[{name:'CMD',val:0xAF},{name:'STATUS',val:0x00}]}
+];
+function findTarget(id){ for(var i=0;i<TARGETS.length;i++){ if(TARGETS[i].id===id) return TARGETS[i]; } return null; }
+
+/* ============================== STATE ============================== */
+var state = {
+  mode:'beginner', preset:'flash-read', playing:false, speedLevel:2,
+  eventIndex:-1, events:[], samples:[], explainDeepOpen:false, modeExplainOpen:false,
+  cfg:{ targetId:'flash', cmd:0x03, addr:0x001000, data:0x5A, order:'msb', freq:10, spiMode:0, error:'none', hasAddr:true }
+};
+var timer = null;
+
+/* ============================== HELPERS ============================== */
+function toBits(value,n,order){
+  var out=[];
+  for(var i=n-1;i>=0;i--){ out.push((value>>i)&1); }
+  if(order==='lsb') out.reverse();
+  return out;
+}
+function hex(v,digits){ digits=digits||2; var s=(v>>>0).toString(16).toUpperCase(); while(s.length<digits) s='0'+s; return '0x'+s; }
+function bitsToVal(bits,order){
+  var b = order==='lsb' ? bits.slice().reverse() : bits;
+  var v=0; for(var i=0;i<b.length;i++){ v=(v<<1)|b[i]; } return v;
+}
+
+/* ============================== TRANSACTION BUILDER ============================== */
+/* events: {kind:'CS_LOW'|'CS_HIGH'|'CLOCK'|'STUCK', role, bitPos, mosiVal, misoVal, byteBits{mosi,miso}, meta} */
+function buildTransaction(cfg){
+  var target = findTarget(cfg.targetId);
+  var events = [];
+  var wrongCS = cfg.error==='wrong-cs';
+  var misoDisc = cfg.error==='miso-disconnected';
+  var modeMismatch = cfg.error==='mode-mismatch';
+
+  events.push({kind:'CS_LOW', target: wrongCS? null : target.id});
+
+  function pushByte(role, mosiBits, misoBits, label){
+    for(var i=0;i<mosiBits.length;i++){
+      events.push({kind:'CLOCK', role:role, bitPos:i, mosiVal:mosiBits[i], misoVal: (wrongCS? null : (misDisconnected()?0:misoBits[i])), byteBits:{mosi:mosiBits, miso:misoBits}, meta:{phaseLabel:label}});
+    }
+  }
+  function misDisconnected(){ return misoDisc; }
+
+  var cmdBits = toBits(cfg.cmd & 0xFF, 8, cfg.order);
+  var dummyMisoForCmd = new Array(8).fill(0);
+  pushByte('command', cmdBits, dummyMisoForCmd, 'COMMAND');
+
+  if(cfg.hasAddr){
+    var addrBits = toBits(cfg.addr & 0xFFFFFF, 24, cfg.order);
+    var dummyMisoForAddr = new Array(24).fill(0);
+    pushByte('address', addrBits, dummyMisoForAddr, 'ADDRESS');
+  }
+
+  var readVal = 0x5A;
+  var reg = target.registers && target.registers[1] ? target.registers[1].val : 0x5A;
+  readVal = reg;
+  var mosiForData = toBits(0x00,8,cfg.order);
+  var misoForData = toBits(readVal & 0xFF, 8, cfg.order);
+  pushByte('data', mosiForData, misoForData, cfg.type==='write' ? 'DATA (write)' : 'DATA (returned)');
+
+  events.push({kind:'CS_HIGH', target: wrongCS? null : target.id, failed: wrongCS||misoDisc});
+
+  return {events:events, target:target, wrongCS:wrongCS, modeMismatch:modeMismatch};
+}
+
+/* ============================== WAVEFORM SAMPLES ============================== */
+function buildSamples(events, cfg){
+  var samples = [];
+  var cpol = (cfg.spiMode===2||cfg.spiMode===3) ? 1 : 0;
+  function push(cs,sclk,mosi,miso,ei){ samples.push({cs:cs,sclk:sclk,mosi:mosi,miso:miso,eventIndex:ei}); }
+  push(1, cpol, 1, 1, -1);
+  events.forEach(function(ev, idx){
+    if(ev.kind==='CS_LOW'){ push(1,cpol,1,1,idx); push(0,cpol,1,1,idx); }
+    else if(ev.kind==='CS_HIGH'){ push(0,cpol,1,1,idx); push(1,cpol,1,1,idx); }
+    else if(ev.kind==='CLOCK'){
+      var m = ev.mosiVal, s = ev.misoVal===null?1:ev.misoVal;
+      push(0, cpol, m, s, idx);
+      push(0, cpol?0:1, m, s, idx);
+      push(0, cpol?0:1, m, s, idx);
+      push(0, cpol, m, s, idx);
+    }
+  });
+  return samples;
+}
+
+/* ============================== EXPLANATIONS ============================== */
+function explainFor(ev, ctx){
+  if(!ev) return {title:'Ready', body:'Choose a transaction and press play to watch the controller talk to a device over SPI.', deep:''};
+  var target = ctx.target;
+  if(ev.kind==='CS_LOW'){
+    if(!ev.target){
+      return {title:'Wrong chip select', body:'The controller pulls a CS line LOW, but it is not the line connected to '+target.name+'. The intended device never wakes up.',
+        deep:'CS lines are per-device. Pulling the wrong CS LOW means the intended target simply never sees itself selected \u2014 it ignores everything on SCLK/MOSI, and its MISO output stays high-impedance (released), so the controller reads back nothing meaningful.'};
+    }
+    return {title:'CS goes LOW \u2014 device selected', body:target.name+' is now selected. Only this device will respond to the clock; every other device on the bus stays silent even though they share SCLK, MOSI and MISO.',
+      deep:'CS (chip select / slave select) is active-LOW on almost all SPI devices. Driving it LOW wakes the target\u2019s SPI interface and tells it to start shifting data in on MOSI and driving MISO. Any device whose CS stays HIGH ignores the bus entirely, which is what lets many devices safely share the same three data lines.'};
+  }
+  if(ev.kind==='CS_HIGH'){
+    return {title: ev.failed?'Transaction ended (no valid response)':'CS returns HIGH \u2014 transaction ends', body: ev.failed? 'CS returns HIGH without a valid exchange happening. The target releases MISO and returns to its idle, unselected state.' : target.name+' is deselected. It stops driving MISO and the transaction is complete.',
+      deep:'Raising CS ends the frame. Everything after this point \u2014 more clock pulses, new data on MOSI \u2014 is ignored by this device until CS goes LOW again. Many controllers also use the CS edges themselves to reset the target\u2019s internal bit counter for the next transaction.'};
+  }
+  if(ev.kind==='CLOCK'){
+    var edgeWord = (function(){
+      var cpha = (state.cfg.spiMode===1||state.cfg.spiMode===3) ? 1 : 0;
+      return cpha ? 'second (trailing) clock edge' : 'first (leading) clock edge';
+    })();
+    if(ev.role==='command'){
+      return {title:'Sending command \u2014 bit '+(ev.bitPos+1)+'/'+ev.byteBits.mosi.length, body:'MOSI carries command bit '+ev.mosiVal+' toward '+target.name+'. This byte tells the target what operation to perform (e.g. read memory).',
+        deep:'Flash and many SPI peripherals define a fixed set of one-byte opcodes (READ = 0x03, WRITE = 0x02, etc.). The very first byte of a transaction usually tells the target how to interpret everything that follows.'};
+    }
+    if(ev.role==='address'){
+      return {title:'Sending address \u2014 bit '+(ev.bitPos+1)+'/'+ev.byteBits.mosi.length, body:'MOSI carries address bit '+ev.mosiVal+'. This tells the target exactly which memory location to read from or write to.',
+        deep:'Unlike I\u00b2C, there is no separate register-pointer convention baked into the protocol \u2014 the address is simply more bytes shifted out right after the command, and how many address bytes to expect is entirely defined by that command / device datasheet.'};
+    }
+    return {title:'Full-duplex data \u2014 bit '+(ev.bitPos+1)+'/'+ev.byteBits.mosi.length, body:'On this same clock pulse: MOSI = '+ev.mosiVal+' goes out to the target, while MISO = '+(ev.misoVal===null?'released (no signal)':ev.misoVal)+' comes back from it, sampled on the '+edgeWord+'.',
+      deep:'This is the defining SPI moment: the controller\u2019s TX shift register pushes a bit out on MOSI at the same instant the target\u2019s TX shift register pushes a bit back on MISO. Both shift registers advance together, driven by the very same clock edge \u2014 there is no request/response turnaround like a half-duplex link would need.'};
+  }
+  return {title:'',body:'',deep:''};
+}
+
+/* ============================== DOM refs ============================== */
+var svg = document.getElementById('spiSvg');
+var waveCanvas = document.getElementById('waveCanvas');
+var wctx = waveCanvas.getContext('2d');
+
+/* ============================== SVG DEVICE ICONS ============================== */
+function chipIcon(kind, cx, cy, w, h, color){
+  var pins='', n=3;
+  for(var i=0;i<n;i++){
+    var px = cx - w/2 + (w/(n+1))*(i+1);
+    pins += '<rect x="'+(px-1.5)+'" y="'+(cy-h/2-6)+'" width="3" height="6" fill="'+color+'" opacity="0.55"/>';
+    pins += '<rect x="'+(px-1.5)+'" y="'+(cy+h/2)+'" width="3" height="6" fill="'+color+'" opacity="0.55"/>';
+  }
+  var inner='';
+  if(kind==='controller'){
+    inner = '<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+color+'" opacity="0.85"/>'+
+      '<path d="M '+(cx-10)+' '+cy+' h 6 M '+(cx+4)+' '+cy+' h 6 M '+cx+' '+(cy-10)+' v 6 M '+cx+' '+(cy+4)+' v 6" stroke="'+color+'" stroke-width="1.6" opacity="0.6"/>';
+  } else if(kind==='flash'){
+    inner = '<rect x="'+(cx-9)+'" y="'+(cy-6)+'" width="18" height="12" rx="1.5" fill="none" stroke="'+color+'" stroke-width="1.4" opacity="0.75"/>'+
+      '<line x1="'+(cx-6)+'" y1="'+(cy-2)+'" x2="'+(cx+6)+'" y2="'+(cy-2)+'" stroke="'+color+'" stroke-width="1.2" opacity="0.55"/>'+
+      '<line x1="'+(cx-6)+'" y1="'+(cy+2)+'" x2="'+(cx+6)+'" y2="'+(cy+2)+'" stroke="'+color+'" stroke-width="1.2" opacity="0.55"/>';
+  } else if(kind==='sensor'){
+    inner = '<circle cx="'+cx+'" cy="'+cy+'" r="6" fill="none" stroke="'+color+'" stroke-width="1.6" opacity="0.8"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="2" fill="'+color+'" opacity="0.8"/>';
+  } else if(kind==='display'){
+    inner = '<rect x="'+(cx-10)+'" y="'+(cy-6)+'" width="20" height="12" rx="1" fill="none" stroke="'+color+'" stroke-width="1.6" opacity="0.8"/>'+
+      '<rect x="'+(cx-7)+'" y="'+(cy-3)+'" width="14" height="6" fill="'+color+'" opacity="0.25"/>';
+  }
+  return '<g>'+pins+'<rect class="dev-body" x="'+(cx-w/2)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="8" fill="#fff" stroke="'+color+'" stroke-width="1.6"/>'+inner+'</g>';
+}
+
+/* ============================== LAYOUT ============================== */
+var CTRL_X=70, CTRL_Y=200;
+var LINE_X0=170, LINE_X1=680;
+var Y_CS=90, Y_SCLK=150, Y_MOSI=210, Y_MISO=270;
+var deviceXs={}, deviceYs={};
+function layoutTargets(){
+  TARGETS.forEach(function(t,i){ deviceXs[t.id]=760; deviceYs[t.id]= 90 + i*100; });
+}
+layoutTargets();
+
+/* ============================== SVG RENDER ============================== */
+function renderSVG(){
+  var d = getDriverInfo();
+  var html='';
+  html += '<defs></defs>';
+
+  html += lineWithLabel(LINE_X0, Y_CS, LINE_X1+90, Y_CS, d.csColor, 'CS', 'var(--cs)', d.csActive, 'cs', d.csVal);
+  html += lineWithLabel(LINE_X0, Y_SCLK, LINE_X1+90, Y_SCLK, d.sclkColor, 'SCLK', 'var(--sclk)', d.sclkActive, 'sclk', d.sclkVal);
+  html += lineWithLabel(LINE_X0, Y_MOSI, LINE_X1+90, Y_MOSI, d.mosiColor, 'MOSI', 'var(--mosi)', d.mosiActive, 'mosi', d.mosiVal, true);
+  html += lineWithLabel(LINE_X0, Y_MISO, LINE_X1+90, Y_MISO, d.misoColor, 'MISO', 'var(--miso)', d.misoActive, 'miso', d.misoVal, false, true);
+
+  html += '<line x1="'+CTRL_X+'" y1="'+CTRL_Y+'" x2="'+LINE_X0+'" y2="'+Y_CS+'" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="3,3"/>';
+  html += '<line x1="'+CTRL_X+'" y1="'+CTRL_Y+'" x2="'+LINE_X0+'" y2="'+Y_SCLK+'" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="3,3"/>';
+  html += '<line x1="'+CTRL_X+'" y1="'+CTRL_Y+'" x2="'+LINE_X0+'" y2="'+Y_MOSI+'" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="3,3"/>';
+  html += '<line x1="'+CTRL_X+'" y1="'+CTRL_Y+'" x2="'+LINE_X0+'" y2="'+Y_MISO+'" stroke="var(--border-strong)" stroke-width="1.4" stroke-dasharray="3,3"/>';
+
+  html += '<g class="node-label" data-inspect="mcu">'+chipIcon('controller',CTRL_X,CTRL_Y,80,70,d.controllerActive?'var(--active)':'var(--navy-2)')+
+    '<text x="'+CTRL_X+'" y="'+(CTRL_Y+50)+'" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--navy)">Controller</text>'+
+    '<text x="'+CTRL_X+'" y="'+(CTRL_Y+63)+'" text-anchor="middle" font-size="9.5" fill="var(--muted)">MCU</text></g>';
+
+  TARGETS.forEach(function(t){
+    var y = deviceYs[t.id], x = LINE_X1+150;
+    var selected = d.selectedTarget===t.id;
+    var wrongSel = d.wrongCsAttempt && !selected;
+    var col='var(--idle)', status='not selected (CS high)';
+    if(selected){ col = d.transferring? 'var(--active)':'var(--cs)'; status = d.transferring? 'transferring':'selected (CS low)'; }
+    else if(d.wrongCsAttempt){ col='var(--idle)'; status='not selected'; }
+    html += '<line x1="'+(LINE_X1+90)+'" y1="'+Y_CS+'" x2="'+(x-30)+'" y2="'+y+'" stroke="'+(selected?'var(--cs)':'var(--border-strong)')+'" stroke-width="1.6" stroke-dasharray="'+(selected?'0':'3,3')+'"/>';
+    html += '<line x1="'+(LINE_X1+90)+'" y1="'+Y_SCLK+'" x2="'+(x-30)+'" y2="'+(y+14)+'" stroke="var(--border-strong)" stroke-width="1.2" stroke-dasharray="2,3" opacity="0.5"/>';
+    html += '<g class="node-label" data-inspect="'+t.id+'">'+chipIcon(t.kind,x,y,68,50,col)+
+      '<text x="'+x+'" y="'+(y+38)+'" text-anchor="middle" font-size="11" font-weight="600" fill="var(--navy)">'+t.name+'</text>'+
+      '<text x="'+x+'" y="'+(y+50)+'" text-anchor="middle" font-size="9.5" class="mono" fill="'+col+'" font-weight="600">'+t.csLabel+'</text>'+
+      '<text x="'+x+'" y="'+(y+62)+'" text-anchor="middle" font-size="8.7" fill="var(--muted)">'+status+'</text></g>';
+  });
+
+  if(d.conditionLabel){
+    html += '<rect x="'+(LINE_X0+ (LINE_X1-LINE_X0)/2 - 62)+'" y="20" width="124" height="24" rx="12" fill="'+d.conditionColor+'" opacity="0.14"/>';
+    html += '<text x="'+(LINE_X0+(LINE_X1-LINE_X0)/2)+'" y="36" text-anchor="middle" font-size="12" font-weight="700" fill="'+d.conditionColor+'">'+d.conditionLabel+'</text>';
+  }
+
+  if(d.travel){
+    html += '<circle r="5" fill="'+d.travel.color+'"><animateMotion dur="0.55s" repeatCount="1" fill="freeze" path="M '+d.travel.x1+' '+d.travel.y+' L '+d.travel.x2+' '+d.travel.y+'"/></circle>';
+  }
+  if(d.travel2){
+    html += '<circle r="5" fill="'+d.travel2.color+'"><animateMotion dur="0.55s" repeatCount="1" fill="freeze" path="M '+d.travel2.x1+' '+d.travel2.y+' L '+d.travel2.x2+' '+d.travel2.y+'"/></circle>';
+  }
+
+  svg.innerHTML = html;
+  attachInspectHandlers();
+}
+function lineWithLabel(x1,y,x2,y2b,strokeColor,label,labelColor,active,inspectId,valText,isMosi,isMiso){
+  var h='';
+  h += '<g class="node-label" data-inspect="'+inspectId+'">';
+  h += '<line x1="'+x1+'" y1="'+(y-9)+'" x2="'+x2+'" y2="'+(y-9)+'" stroke="transparent" stroke-width="20"/>';
+  h += '<line x1="'+x1+'" y1="'+y+'" x2="'+x2+'" y2="'+y+'" stroke="'+strokeColor+'" stroke-width="'+(active?3.6:2.4)+'" stroke-linecap="round"/>';
+  var arrowX = isMiso ? x1+30 : x2-30;
+  var dir = isMiso ? -1 : 1;
+  h += '<path d="M '+(arrowX-6*dir)+' '+(y-5)+' L '+(arrowX+6*dir)+' '+y+' L '+(arrowX-6*dir)+' '+(y+5)+' Z" fill="'+strokeColor+'" opacity="'+(active?0.95:0.45)+'"/>';
+  h += '<text x="'+(x1-14)+'" y="'+(y+4)+'" text-anchor="end" class="mono" font-size="12" fill="'+labelColor+'" font-weight="600">'+label+'</text>';
+  h += '<text x="'+(x2+10)+'" y="'+(y+4)+'" class="mono" font-size="10.5" fill="var(--muted)">'+(active?('= '+valText):'idle')+'</text>';
+  h += '</g>';
+  return h;
+}
+
+function getDriverInfo(){
+  var info = {csColor:'#E9C9A6', csActive:false, csVal:'HIGH', sclkColor:'#D8CFF3', sclkActive:false, sclkVal:'idle',
+    mosiColor:'#B9D2FB', mosiActive:false, mosiVal:'', misoColor:'#BFEBD9', misoActive:false, misoVal:'',
+    controllerActive:false, selectedTarget:null, transferring:false, wrongCsAttempt:false,
+    conditionLabel:'', conditionColor:'var(--navy-2)', travel:null, travel2:null};
+  var ev = state.events[state.eventIndex];
+  if(!ev) return info;
+
+  if(ev.kind==='CS_LOW'){
+    info.csActive=true; info.csColor='var(--cs)'; info.csVal='LOW'; info.controllerActive=true;
+    if(ev.target){ info.selectedTarget=ev.target; info.conditionLabel='CS LOW \u2014 SELECTED'; info.conditionColor='var(--cs)'; info.travel={x1:CTRL_X,x2:LINE_X0,y:Y_CS,color:'var(--cs)'}; }
+    else { info.wrongCsAttempt=true; info.conditionLabel='WRONG CS \u2014 NOT SELECTED'; info.conditionColor='var(--err)'; info.travel={x1:CTRL_X,x2:LINE_X0,y:Y_CS,color:'var(--err)'}; }
+  } else if(ev.kind==='CS_HIGH'){
+    info.csActive=true; info.csColor= ev.failed?'var(--err)':'var(--navy-2)'; info.csVal='HIGH'; info.controllerActive=true;
+    info.conditionLabel = ev.failed? 'CS HIGH \u2014 ENDED (NO VALID XFER)' : 'CS HIGH \u2014 TRANSACTION END';
+    info.conditionColor = ev.failed? 'var(--err)' : 'var(--navy-2)';
+  } else if(ev.kind==='CLOCK'){
+    info.csActive=true; info.csColor='var(--cs)'; info.csVal='LOW'; info.selectedTarget = state.currentTarget.id;
+    info.sclkActive=true; info.sclkColor='var(--sclk)'; info.sclkVal='pulse '+(ev.bitPos+1);
+    info.mosiActive=true; info.mosiColor='var(--mosi)'; info.mosiVal=ev.mosiVal; info.controllerActive=true; info.transferring=true;
+    if(ev.misoVal===null){ info.misoActive=true; info.misoColor='var(--err)'; info.misoVal='none'; }
+    else { info.misoActive=true; info.misoColor='var(--miso)'; info.misoVal=ev.misoVal; }
+    info.conditionLabel = (ev.meta&&ev.meta.phaseLabel) || ev.role.toUpperCase();
+    info.conditionColor='var(--active)';
+    info.travel = {x1:CTRL_X, x2:LINE_X0, y:Y_MOSI, color:'var(--mosi)'};
+    info.travel2 = {x1:deviceXs[state.currentTarget.id]-90, x2:LINE_X1+90, y:Y_MISO, color: ev.misoVal===null?'var(--err)':'var(--miso)'};
+  }
+  return info;
+}
+
+/* ============================== WAVEFORM ============================== */
+function renderWave(){
+  var dpr = window.devicePixelRatio||1;
+  var w = waveCanvas.clientWidth, h=190;
+  waveCanvas.width=w*dpr; waveCanvas.height=h*dpr;
+  wctx.setTransform(dpr,0,0,dpr,0,0);
+  wctx.clearRect(0,0,w,h);
+  var samples = state.samples;
+  if(!samples.length) return;
+  var maxSample = Math.max(1, activeSampleCount());
+  var visible = Math.max(24, maxSample);
+  var padL=48, padR=12, plotW=w-padL-padR, stepX=plotW/Math.max(1,visible-1);
+  var rows = [ ['CS','#D8590C', function(s){return s.cs;}], ['SCLK','#7B5CE0',function(s){return s.sclk;}], ['MOSI','#2F6FED',function(s){return s.mosi;}], ['MISO','#1FA971',function(s){return s.miso;}] ];
+  var rowH=40;
+  wctx.strokeStyle='#EDF0F5'; wctx.lineWidth=1;
+  rows.forEach(function(r,idx){ var gy=8+idx*rowH+16; wctx.beginPath(); wctx.moveTo(padL,gy); wctx.lineTo(w-padR,gy); wctx.stroke(); });
+  wctx.font='11px IBM Plex Mono, monospace';
+  rows.forEach(function(r,idx){ wctx.fillStyle=r[1]; wctx.fillText(r[0], 4, 8+idx*rowH+18); });
+
+  rows.forEach(function(r,idx){
+    var y0 = 8+idx*rowH+6, y1 = 8+idx*rowH+26;
+    wctx.beginPath();
+    var lastY=null;
+    for(var i=0;i<maxSample && i<samples.length;i++){
+      var v = r[2](samples[i]);
+      var x = padL+i*stepX;
+      var y = v? y0:y1;
+      if(lastY===null){ wctx.moveTo(x,y); } else { wctx.lineTo(x,lastY); wctx.lineTo(x,y); }
+      lastY=y;
+    }
+    if(maxSample>0){ wctx.lineTo(padL+(maxSample-1)*stepX+stepX*0.6, lastY); }
+    wctx.strokeStyle=r[1]; wctx.lineWidth=2.2; wctx.lineJoin='round'; wctx.stroke();
+  });
+
+  if(maxSample>0){
+    var px = padL+(maxSample-1)*stepX;
+    wctx.strokeStyle='#F2994A'; wctx.lineWidth=1.5;
+    wctx.beginPath(); wctx.moveTo(px,4); wctx.lineTo(px,h-6); wctx.stroke();
+  }
+}
+function activeSampleCount(){
+  if(state.eventIndex<0) return 1;
+  var count=0;
+  for(var i=0;i<state.samples.length;i++){ if(state.samples[i].eventIndex<=state.eventIndex) count=i+1; else break; }
+  return count;
+}
+
+/* ============================== TRANSACTION SETUP ============================== */
+function rebuildTransaction(){
+  var result = buildTransaction(state.cfg);
+  state.events = result.events;
+  state.samples = buildSamples(result.events, state.cfg);
+  state.currentTarget = result.target;
+  state.eventIndex=-1;
+  pause();
+  renderAll();
+}
+
+/* ============================== PLAYBACK ============================== */
+function speedMs(){ var map={1:1100,2:650,3:380,4:180}; return map[state.speedLevel]||650; }
+function play(){
+  if(state.eventIndex>=state.events.length-1) return;
+  state.playing=true; updatePlayButton(); clearInterval(timer);
+  timer=setInterval(function(){ stepForward(); if(state.eventIndex>=state.events.length-1){ pause(); } }, speedMs());
+}
+function pause(){ state.playing=false; clearInterval(timer); updatePlayButton(); }
+function updatePlayButton(){ document.getElementById('btnPlay').innerHTML = state.playing? '&#10074;&#10074;':'&#9654;'; }
+function stepForward(){ if(state.eventIndex>=state.events.length-1) return; state.eventIndex++; renderAll(); }
+function stepBack(){ if(state.eventIndex<=-1) return; state.eventIndex--; renderAll(); }
+function restart(){ pause(); state.eventIndex=-1; renderAll(); }
+
+/* ============================== RENDER: sidebars ============================== */
+function renderInfo(){
+  var t = state.currentTarget, ev = state.events[state.eventIndex];
+  document.getElementById('infoTx').textContent = state.cfg.hasAddr ? 'Read memory via command+address' : 'Register transfer';
+  document.getElementById('infoTarget').textContent = t? t.name : '\u2014';
+  document.getElementById('infoCS').textContent = t? t.csLabel : '\u2014';
+  document.getElementById('infoMode').textContent = 'MODE '+state.cfg.spiMode+' (CPOL='+((state.cfg.spiMode>=2)?1:0)+', CPHA='+((state.cfg.spiMode%2===1)?1:0)+')';
+
+  var phaseEl = document.getElementById('infoPhase'), busEl=document.getElementById('infoBus'), badge=document.getElementById('busStateBadge');
+  var dm = document.getElementById('dupMosi'), dmi = document.getElementById('dupMiso');
+
+  if(!ev){
+    phaseEl.innerHTML='<span class="phase-pill" style="background:var(--bg);color:var(--muted)">IDLE</span>';
+    busEl.textContent='IDLE'; setBadge(badge,false,'CS IDLE (HIGH)'); dm.textContent='\u2014'; dmi.textContent='\u2014';
+    return;
+  }
+  var label='',color='var(--active)';
+  if(ev.kind==='CS_LOW'){ label = ev.target? 'CS LOW':'WRONG CS'; color = ev.target? 'var(--cs)':'var(--err)'; }
+  else if(ev.kind==='CS_HIGH'){ label='CS HIGH'; color= ev.failed?'var(--err)':'var(--navy-2)'; }
+  else if(ev.kind==='CLOCK'){ label=(ev.meta.phaseLabel||ev.role).toUpperCase(); color='var(--active)'; }
+  phaseEl.innerHTML='<span class="phase-pill" style="background:'+color+'22;color:'+color+'">'+label+'</span>';
+  busEl.textContent = (state.eventIndex<state.events.length-1)?'ACTIVE':(ev.kind==='CS_HIGH'?'IDLE':'ACTIVE');
+  setBadge(badge, busEl.textContent!=='IDLE', busEl.textContent==='IDLE'?'CS IDLE (HIGH)':'CS LOW \u2014 ACTIVE');
+
+  if(ev.kind==='CLOCK'){ dm.textContent=ev.mosiVal; dmi.textContent = ev.misoVal===null?'none':ev.misoVal; }
+  else { dm.textContent='\u2014'; dmi.textContent='\u2014'; }
+}
+function setBadge(badge,active,text){
+  badge.innerHTML='<span id="busPulse" class="'+(active?'live':'')+'">&#9679;</span> '+text;
+  badge.style.color = active? 'var(--active)':'var(--muted)';
+  badge.style.borderColor = active? 'var(--active-dim)':'var(--border)';
+}
+
+function renderByteJourney(){
+  var ev = state.events[state.eventIndex];
+  var el = document.getElementById('byteJourney');
+  if(!ev || ev.kind!=='CLOCK'){
+    if(ev && ev.kind==='CS_LOW'){ el.innerHTML='<div class="byte-label">Bus condition</div><div style="font-size:12.5px;color:var(--muted)">CS transitions LOW \u2014 no byte is transmitted yet, this just selects the device.</div>'; return; }
+    if(ev && ev.kind==='CS_HIGH'){ el.innerHTML='<div class="byte-label">Bus condition</div><div style="font-size:12.5px;color:var(--muted)">CS returns HIGH \u2014 the frame is complete, no further bits are shifted.</div>'; return; }
+    el.innerHTML=''; return;
+  }
+  var mosiBits = ev.byteBits.mosi, misoBits = ev.byteBits.miso;
+  var html = '<div class="byte-label">'+(ev.meta.phaseLabel||ev.role)+' &mdash; MOSI byte '+hex(bitsToVal(mosiBits,state.cfg.order))+' / MISO byte '+hex(bitsToVal(misoBits,state.cfg.order))+'</div>';
+  html += '<div style="font-size:10.5px;color:var(--mosi);font-weight:700;margin-top:4px;">MOSI (out)</div><div class="byte-row">';
+  mosiBits.forEach(function(b,i){ var cls = i===ev.bitPos?'mosi-active':(i<ev.bitPos?'done':''); html += '<div class="bit-box '+cls+'">'+b+'</div>'; });
+  html += '</div>';
+  html += '<div style="font-size:10.5px;color:var(--miso);font-weight:700;margin-top:6px;">MISO (in)</div><div class="byte-row">';
+  misoBits.forEach(function(b,i){ var cls = i===ev.bitPos?'mosi-active':(i<ev.bitPos?'done':''); var val = ev.misoVal===null? '\u2013' : b; html += '<div class="bit-box '+cls+'" style="'+(i===ev.bitPos?'border-color:var(--miso);background:var(--miso-dim);color:#085041;':'')+'">'+val+'</div>'; });
+  html += '</div>';
+  html += '<div style="font-size:11px;color:var(--muted);margin-top:4px;">bit order: '+(state.cfg.order==='msb'?'MSB first (7\u21920)':'LSB first (0\u21927)')+'</div>';
+  el.innerHTML = html;
+}
+
+function renderExplain(){
+  var ev = state.events[state.eventIndex];
+  var ex = explainFor(ev, {target: state.currentTarget});
+  var titleEl = document.getElementById('explainTitle'), bodyEl=document.getElementById('explainBody');
+  titleEl.innerHTML = ex.title; bodyEl.innerHTML = ex.body;
+  titleEl.classList.remove('anim-fade'); void titleEl.offsetWidth; titleEl.classList.add('anim-fade');
+  bodyEl.classList.remove('anim-fade'); void bodyEl.offsetWidth; bodyEl.classList.add('anim-fade');
+  var deepEl = document.getElementById('explainDeep');
+  deepEl.innerHTML = ex.deep;
+  deepEl.className = 'explain-deep'+(state.explainDeepOpen?' show':'');
+}
+
+function renderInternal(){
+  var panel = document.getElementById('internalPanel');
+  if(state.mode!=='engineer'){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  var ev = state.events[state.eventIndex]; var t = state.currentTarget;
+  var html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">';
+  html += '<div><b style="color:var(--navy)">Controller path</b><br>CPU &rarr; SPI data register &rarr; TX shift register &rarr; MOSI, driven by the clock generator.<br>MISO &rarr; RX shift register &rarr; SPI data register &rarr; CPU.'+
+    (ev && ev.kind==='CLOCK' ? '<br><span class="mono" style="color:var(--active)">shift reg (TX): '+ev.mosiVal+' out &middot; shift reg (RX): '+(ev.misoVal===null?'\u2013':ev.misoVal)+' in</span>' : '')+'</div>';
+  html += '<div><b style="color:var(--navy)">Target path</b><br>MOSI &rarr; RX/shift register &rarr; command decoder &rarr; target logic ('+(t? t.registers.map(function(r){return r.name;}).join(', '):'')+').<br>Target data &rarr; TX shift register &rarr; MISO.'+
+    (state.currentTarget && ev && (ev.kind==='CS_LOW') && ev.target ? '<br><span class="mono" style="color:var(--cs)">chip select decoder: MATCH on '+t.csLabel+'</span>' : '')+'</div>';
+  html += '</div>';
+  html += '<div class="pullup-note"><b>No ACK phase:</b> unlike I\u00b2C, SPI has no built-in acknowledge bit. Every clock pulse moves a bit in each direction regardless of whether the target is "happy" with it \u2014 any success/error signalling (like a flash status register) is a device-specific convention, not part of the SPI protocol itself.</div>';
+  html += '<div class="pullup-note"><b>Clock edges (this mode):</b> CPOL='+((state.cfg.spiMode>=2)?1:0)+' means SCLK idles '+((state.cfg.spiMode>=2)?'HIGH':'LOW')+'. CPHA='+((state.cfg.spiMode%2===1)?1:0)+' means data is sampled on the '+((state.cfg.spiMode%2===1)?'second':'first')+' edge of each clock cycle. Controller and target must be configured to the same mode or bits get sampled at the wrong instant.</div>';
+  document.getElementById('internalContent').innerHTML = html;
+}
+
+function renderControlsState(){
+  var atStart = state.eventIndex<=-1, atEnd = state.eventIndex>=state.events.length-1;
+  document.getElementById('btnStepBack').disabled=atStart;
+  document.getElementById('btnStepFwd').disabled=atEnd;
+  document.getElementById('btnPlay').disabled = atEnd && !state.playing;
+  document.getElementById('btnRestart').disabled=atStart;
+  var total = state.events.length, current = state.eventIndex+1;
+  var pct = total>0? Math.round((current/total)*100):0;
+  document.getElementById('stepFill').style.width=pct+'%';
+  document.getElementById('stepCaption').textContent='Step '+current+' of '+total;
+  document.getElementById('stepPct').textContent=pct+'%';
+}
+
+function renderAll(){
+  renderSVG(); renderWave(); renderInfo(); renderByteJourney(); renderExplain(); renderInternal(); renderControlsState();
+}
+
+/* ============================== INSPECTOR ============================== */
+function attachInspectHandlers(){
+  svg.querySelectorAll('[data-inspect]').forEach(function(n){ n.addEventListener('click', function(){ showInspector(n.getAttribute('data-inspect')); }); });
+}
+function showInspector(id){
+  var body = document.getElementById('inspectorBody');
+  if(id==='mcu'){ body.innerHTML='<b>Controller (MCU)</b><br>Generates SCLK, drives whichever CS line selects the target, pushes bits out on MOSI, and samples MISO on every clock edge to receive bits back \u2014 all at once.'; return; }
+  if(id==='cs'){ body.innerHTML='<b style="color:var(--cs)">CS &mdash; Chip Select</b><br>Think of CS as a <b>spotlight</b>: the controller shines it on exactly one device (pulls that device\u2019s CS LOW). Every device shares SCLK/MOSI/MISO, but only the one currently in the spotlight is allowed to respond.<br><br><span style="color:var(--muted);font-size:11.5px;">Active LOW on almost every SPI device: LOW = selected, HIGH = ignored.</span>'; return; }
+  if(id==='sclk'){ body.innerHTML='<b style="color:var(--sclk)">SCLK &mdash; Serial Clock</b><br>Think of SCLK as the <b>conductor\u2019s metronome</b>. It doesn\u2019t carry data itself \u2014 it just ticks steadily, and one bit moves on MOSI and MISO with every tick.<br><br><span style="color:var(--muted);font-size:11.5px;">Only the controller ever generates SCLK; the target just listens to it.</span>'; return; }
+  if(id==='mosi'){ body.innerHTML='<b style="color:var(--mosi)">MOSI &mdash; Controller Out, Target In</b><br>Think of it as the <b>outgoing conveyor belt</b>: commands, addresses and write data always travel from the controller toward the selected target on this line, and only this direction.'; return; }
+  if(id==='miso'){ body.innerHTML='<b style="color:var(--miso)">MISO &mdash; Target Out, Controller In</b><br>Think of it as the <b>return conveyor belt</b>: whatever the target wants to send back \u2014 read data, status bits \u2014 travels on this separate line, at the very same time MOSI is carrying something the other way. That simultaneous two-way flow is what makes SPI full-duplex.'; return; }
+  var t = findTarget(id);
+  if(t){
+    var html = '<b>'+t.name+'</b> &mdash; chip select <span class="mono">'+t.csLabel+'</span><br><div style="margin-top:8px;">';
+    t.registers.forEach(function(r){
+      html += '<div class="dev-mini"><span class="dot '+(state.currentTarget && state.currentTarget.id===t.id?'orange':'gray')+'"></span><span class="mono" style="flex:1">'+r.name+'</span><span class="mono">'+hex(r.val, r.val>0xFF?6:2)+'</span></div>';
+    });
+    html += '</div>';
+    var sel = state.currentTarget && state.currentTarget.id===t.id && state.eventIndex>-1;
+    html += '<div style="margin-top:6px;color:'+(sel?'var(--cs)':'var(--muted)')+';font-size:12px;">'+(sel?'Currently selected via '+t.csLabel+'.':'Currently idle \u2014 CS high, ignoring the bus.')+'</div>';
+    body.innerHTML = html;
+  }
+}
+
+/* ============================== CONFIG UI ============================== */
+function populateConfig(){
+  var sel = document.getElementById('cfgTarget');
+  sel.innerHTML = TARGETS.map(function(t){ return '<option value="'+t.id+'">'+t.name+' ('+t.csLabel+')</option>'; }).join('');
+  sel.value = state.cfg.targetId;
+
+  var presetRow = document.getElementById('presetRow');
+  var presets = [
+    {id:'flash-read', label:'Read SPI Flash', sub:'CMD 0x03 + address \u2192 data'},
+    {id:'sensor-read', label:'Read sensor register', sub:'Simple register read, no address'}
+  ];
+  presetRow.innerHTML = presets.map(function(p){ return '<button class="preset-btn" data-preset="'+p.id+'">'+p.label+'<small>'+p.sub+'</small></button>'; }).join('');
+  presetRow.querySelectorAll('.preset-btn').forEach(function(btn){ btn.addEventListener('click', function(){ applyPreset(btn.getAttribute('data-preset')); }); });
+  updatePresetHighlight();
+  updateFieldVisibility();
+  renderModeGrid();
+}
+function updatePresetHighlight(){
+  document.querySelectorAll('.preset-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-preset')===state.preset && state.cfg.error==='none'); });
+}
+function applyPreset(id){
+  state.preset = id;
+  if(id==='flash-read'){ state.cfg = {targetId:'flash', cmd:0x03, addr:0x001000, data:0x5A, order:'msb', freq:state.cfg.freq, spiMode:state.cfg.spiMode, error:'none', hasAddr:true, type:'read'}; }
+  else { state.cfg = {targetId:'sensor', cmd:0x8D, addr:0, data:0x1A, order:'msb', freq:state.cfg.freq, spiMode:state.cfg.spiMode, error:'none', hasAddr:false, type:'read'}; }
+  syncConfigFormFromState(); rebuildTransaction(); updatePresetHighlight();
+}
+function updateFieldVisibility(){ document.getElementById('cfgAddrWrap').style.display = state.cfg.hasAddr? 'block':'none'; }
+function syncConfigFormFromState(){
+  document.getElementById('cfgTarget').value = state.cfg.targetId;
+  document.getElementById('cfgCmd').value = hex(state.cfg.cmd);
+  document.getElementById('cfgAddr').value = hex(state.cfg.addr,6);
+  document.getElementById('cfgData').value = hex(state.cfg.data);
+  document.getElementById('cfgOrder').value = state.cfg.order;
+  document.getElementById('cfgFreq').value = String(state.cfg.freq);
+  document.getElementById('cfgError').value = state.cfg.error;
+  updateFieldVisibility();
+  renderModeGrid();
+}
+function parseHexInput(str,fallback,mask){ var v=parseInt(str,16); if(isNaN(v)) return fallback; return mask? (v&mask) : v; }
+
+function renderModeGrid(){
+  var grid = document.getElementById('modeGrid');
+  var modes = [
+    {m:0,cpol:0,cpha:0},{m:1,cpol:0,cpha:1},{m:2,cpol:1,cpha:0},{m:3,cpol:1,cpha:1}
+  ];
+  grid.innerHTML = modes.map(function(md){
+    return '<div class="mode-card '+(state.cfg.spiMode===md.m?'active':'')+'" data-mode-select="'+md.m+'"><b>MODE '+md.m+'</b>CPOL='+md.cpol+' CPHA='+md.cpha+'</div>';
+  }).join('');
+  grid.querySelectorAll('[data-mode-select]').forEach(function(el){
+    el.addEventListener('click', function(){
+      state.cfg.spiMode = parseInt(el.getAttribute('data-mode-select'),10);
+      renderModeGrid();
+      rebuildTransaction();
+    });
+  });
+}
+
+/* ============================== EVENT WIRING ============================== */
+document.getElementById('analogyToggle').addEventListener('click', function(){
+  var b = document.getElementById('analogyBody'); var hidden = b.style.display==='none';
+  b.style.display = hidden? 'block':'none'; this.textContent = hidden? 'Hide':'Show';
+});
+document.getElementById('modeToggle').addEventListener('click', function(e){
+  var btn = e.target.closest('button'); if(!btn) return;
+  state.mode = btn.getAttribute('data-mode');
+  document.querySelectorAll('#modeToggle button').forEach(function(b){ b.classList.toggle('active', b===btn); });
+  renderAll();
+});
+document.getElementById('btnPlay').addEventListener('click', function(){ if(state.playing) pause(); else play(); });
+document.getElementById('btnStepFwd').addEventListener('click', function(){ pause(); stepForward(); });
+document.getElementById('btnStepBack').addEventListener('click', function(){ pause(); stepBack(); });
+document.getElementById('btnRestart').addEventListener('click', restart);
+document.getElementById('speedSlider').addEventListener('input', function(e){ state.speedLevel=parseInt(e.target.value,10); if(state.playing) play(); });
+document.getElementById('explainDeepBtn').addEventListener('click', function(){ state.explainDeepOpen=!state.explainDeepOpen; renderExplain(); });
+document.getElementById('modeExplainBtn').addEventListener('click', function(){
+  state.modeExplainOpen = !state.modeExplainOpen;
+  document.getElementById('modeExplainBody').style.display = state.modeExplainOpen? 'block':'none';
+});
+document.getElementById('btnApplyConfig').addEventListener('click', function(){
+  var targetId = document.getElementById('cfgTarget').value;
+  var cmd = parseHexInput(document.getElementById('cfgCmd').value, state.cfg.cmd, 0xFF);
+  var addr = parseHexInput(document.getElementById('cfgAddr').value, state.cfg.addr, 0xFFFFFF);
+  var data = parseHexInput(document.getElementById('cfgData').value, state.cfg.data, 0xFF);
+  var order = document.getElementById('cfgOrder').value;
+  var freq = parseInt(document.getElementById('cfgFreq').value,10);
+  var error = document.getElementById('cfgError').value;
+  var t = findTarget(targetId);
+  state.cfg = {targetId:targetId, cmd:cmd, addr:addr, data:data, order:order, freq:freq, spiMode:state.cfg.spiMode, error:error, hasAddr: t.id==='flash', type:'read'};
+  state.preset = null;
+  rebuildTransaction(); updatePresetHighlight();
+});
+window.addEventListener('resize', function(){ renderWave(); });
+
+/* ============================== INIT ============================== */
+populateConfig();
+applyPreset('flash-read');
+showInspector('mcu');
+
+})();
+</script>
+</body>
+</html>

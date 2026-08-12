@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PWM Interactive Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F5F9;
+  --panel:#FFFFFF;
+  --panel-2:#FAFBFD;
+  --navy:#131E36;
+  --navy-2:#1D2C4D;
+  --ink:#152040;
+  --muted:#5E6C87;
+  --faint:#94A0B8;
+  --line:#DFE4ED;
+  --line-2:#E9ECF3;
+  --blue:#2E63EB;
+  --blue-soft:#E7EEFF;
+  --orange:#F0982A;
+  --orange-soft:#FEF1DC;
+  --purple:#7C5CEB;
+  --purple-soft:#EFEAFD;
+  --green:#219A5B;
+  --green-soft:#E4F6EC;
+  --red:#DD4B4B;
+  --red-soft:#FCE9E9;
+  --radius:10px;
+  --mono:'IBM Plex Mono', ui-monospace, monospace;
+  --sans:'IBM Plex Sans', system-ui, sans-serif;
+  --shadow:0 1px 2px rgba(19,30,54,.04), 0 6px 20px -8px rgba(19,30,54,.10);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+}
+.app{max-width:1360px;margin:0 auto;padding:20px 20px 60px;}
+
+/* ---------- HEADER ---------- */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;margin-bottom:18px;
+}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-mark{
+  width:38px;height:38px;border-radius:9px;background:var(--navy);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.brand-mark svg{width:22px;height:22px;}
+.brand-text h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-0.01em;}
+.brand-text p{margin:1px 0 0;font-size:12px;color:var(--muted);font-family:var(--mono);}
+.mode-toggle{
+  display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:3px;box-shadow:var(--shadow);
+}
+.mode-toggle button{
+  border:none;background:transparent;padding:7px 16px;border-radius:999px;
+  font-family:var(--sans);font-weight:600;font-size:12.5px;color:var(--muted);cursor:pointer;
+  transition:background .15s,color .15s;
+}
+.mode-toggle button.active{background:var(--navy);color:#fff;}
+
+/* ---------- LAYOUT ---------- */
+.grid{display:grid;grid-template-columns:1.55fr 1fr;gap:16px;align-items:start;}
+@media (max-width:980px){.grid{grid-template-columns:1fr;}}
+.panel{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:16px 18px;
+}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.panel-title{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.panel-sub{font-size:11.5px;color:var(--faint);font-family:var(--mono);}
+
+/* ---------- CHAIN DIAGRAM ---------- */
+.chain-wrap{overflow-x:auto;}
+#chainSvg{display:block;width:100%;height:auto;min-width:640px;}
+.node-box{cursor:pointer;}
+.node-rect{fill:var(--panel-2);stroke:var(--line);stroke-width:1.3;transition:stroke .15s, fill .15s;}
+.node-box:hover .node-rect{stroke:var(--blue);}
+.node-box.selected .node-rect{stroke:var(--blue);stroke-width:2;fill:var(--blue-soft);}
+.node-label{font-family:var(--sans);font-weight:700;font-size:10.5px;fill:var(--ink);}
+.node-sub{font-family:var(--mono);font-size:9.5px;fill:var(--muted);}
+.chain-line{stroke:var(--line);stroke-width:2;fill:none;}
+.chain-line.live{stroke:var(--blue);}
+.flow-dot{fill:var(--blue);}
+.pin-glow{opacity:0;transition:opacity .05s;}
+.pin-glow.on{opacity:1;}
+.counter-text{font-family:var(--mono);font-weight:600;}
+
+/* ---------- SCOPE ---------- */
+.scope-panel{margin-top:14px;}
+.scope-canvas-wrap{
+  position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;
+  background:
+    linear-gradient(var(--line-2) 1px, transparent 1px) 0 0/ 12.5% 100%,
+    linear-gradient(90deg, var(--line-2) 1px, transparent 1px) 0 0/ 100% 20%,
+    #FCFDFE;
+}
+#scopeCanvas{display:block;width:100%;height:260px;}
+.scope-readout{
+  display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin-top:10px;
+  border:1px solid var(--line);border-radius:8px;overflow:hidden;
+}
+.ro-cell{padding:8px 10px;border-right:1px solid var(--line-2);background:var(--panel-2);}
+.ro-cell:last-child{border-right:none;}
+.ro-label{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700;}
+.ro-value{font-family:var(--mono);font-size:14px;font-weight:600;margin-top:2px;color:var(--ink);}
+@media (max-width:700px){.scope-readout{grid-template-columns:repeat(3,1fr);}
+  .ro-cell{border-bottom:1px solid var(--line-2);}}
+
+/* ---------- CONTROLS ---------- */
+.ctrl-group{margin-bottom:16px;}
+.ctrl-group:last-child{margin-bottom:0;}
+.ctrl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.ctrl-name{font-size:12.5px;font-weight:600;color:var(--ink);}
+.ctrl-val{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--blue);}
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:5px;border-radius:99px;
+  background:var(--line);outline:none;margin:4px 0;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:var(--blue);border:2.5px solid #fff;box-shadow:0 0 0 1px var(--blue);cursor:pointer;
+}
+input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;border-radius:50%;background:var(--blue);border:2.5px solid #fff;box-shadow:0 0 0 1px var(--blue);cursor:pointer;
+}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.seg button{
+  flex:1;border:none;background:var(--panel);padding:7px 6px;font-size:11.5px;font-weight:600;
+  color:var(--muted);cursor:pointer;border-right:1px solid var(--line);font-family:var(--sans);
+}
+.seg button:last-child{border-right:none;}
+.seg button.active{background:var(--navy);color:#fff;}
+.playbar{display:flex;align-items:center;gap:8px;}
+.iconbtn{
+  width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);
+  transition:background .12s;
+}
+.iconbtn:hover{background:var(--panel-2);}
+.iconbtn.primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line-2);}
+.toggle-row:first-child{border-top:none;}
+.tglabel{font-size:12.5px;font-weight:600;}
+.tgdesc{font-size:11px;color:var(--muted);margin-top:1px;}
+.switch{position:relative;width:38px;height:22px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider-tg{position:absolute;cursor:pointer;inset:0;background:var(--line);border-radius:99px;transition:.15s;}
+.slider-tg:before{content:"";position:absolute;height:16px;width:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+.switch input:checked + .slider-tg{background:var(--blue);}
+.switch input:checked + .slider-tg:before{transform:translateX(16px);}
+
+/* ---------- MEASUREMENT CHIPS ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{
+  font-family:var(--mono);font-size:11px;font-weight:600;padding:4px 9px;border-radius:99px;
+  background:var(--panel-2);border:1px solid var(--line);color:var(--muted);
+}
+.chip b{color:var(--ink);}
+
+/* ---------- LOAD PANEL ---------- */
+.load-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.load-tab{
+  padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);
+  font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;font-family:var(--sans);
+}
+.load-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.load-stage{
+  display:flex;align-items:center;justify-content:center;padding:18px 10px;
+  border:1px solid var(--line);border-radius:8px;background:
+    radial-gradient(ellipse at center, #fff 0%, #F7F9FC 100%);
+  min-height:180px;
+}
+
+/* ---------- EXPLAIN PANEL ---------- */
+.explain-box{
+  background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+  padding:14px;min-height:96px;
+}
+.explain-title{font-size:13px;font-weight:700;margin:0 0 4px;color:var(--ink);}
+.explain-text{font-size:13px;line-height:1.5;color:var(--muted);margin:0;}
+.explain-deeper{
+  margin-top:8px;font-size:12px;font-weight:600;color:var(--blue);cursor:pointer;
+  display:inline-block;
+}
+.explain-deep-text{font-size:12.5px;line-height:1.55;color:var(--ink);margin-top:8px;display:none;
+  border-top:1px dashed var(--line);padding-top:8px;}
+.explain-deep-text.show{display:block;}
+
+/* ---------- ADVANCED (engineer) ---------- */
+.adv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media (max-width:520px){.adv-grid{grid-template-columns:1fr;}}
+.mathline{
+  font-family:var(--mono);font-size:12px;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:6px;padding:8px 10px;color:var(--ink);
+}
+.mathline .op{color:var(--faint);margin:0 5px;}
+.warn-box{
+  background:var(--orange-soft);border:1px solid #F4D8A6;border-radius:8px;padding:10px 12px;
+  font-size:12.5px;color:#7A5410;margin-top:10px;
+}
+.err-box{
+  background:var(--red-soft);border:1px solid #F3C6C6;border-radius:8px;padding:10px 12px;
+  font-size:12.5px;color:#8A2A2A;margin-top:10px;
+}
+
+.section-title{font-size:13px;font-weight:700;margin:26px 0 10px;display:flex;align-items:center;gap:8px;}
+.section-title .n{
+  font-family:var(--mono);font-size:11px;color:var(--faint);border:1px solid var(--line);
+  border-radius:5px;padding:1px 6px;
+}
+hr.div{border:none;border-top:1px solid var(--line);margin:20px 0;}
+
+.beginner-hide{display:none;}
+.eng .beginner-hide{display:block;}
+.eng .beginner-hide.inline{display:inline-block;}
+.eng .beginner-hide.grid{display:grid;}
+.eng .beginner-hide.flex{display:flex;}
+
+footer.credit{margin-top:24px;text-align:center;font-size:11px;color:var(--faint);font-family:var(--mono);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M2 12h4l2-7 4 14 3-9 2 5h5" stroke="#F0982A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>PWM Interactive Lab</h1>
+        <p>timer &middot; compare &middot; gpio &middot; waveform</p>
+      </div>
+    </div>
+    <div class="mode-toggle" id="modeToggle">
+      <button id="btnBeginner" class="active">Beginner</button>
+      <button id="btnEngineer">Engineer</button>
+    </div>
+  </div>
+
+  <div class="grid" id="mainGrid">
+
+    <!-- LEFT COLUMN -->
+    <div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Signal generation chain</div>
+          <div class="panel-sub" id="chainStatus">RUNNING</div>
+        </div>
+        <div class="chain-wrap">
+          <svg id="chainSvg" viewBox="0 0 980 190" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+
+        <div class="scope-panel">
+          <div class="panel-head">
+            <div class="panel-title">Oscilloscope</div>
+            <div class="panel-sub">CH1 &middot; <span id="scopeTimebase">1 ms/div</span></div>
+          </div>
+          <div class="scope-canvas-wrap">
+            <canvas id="scopeCanvas"></canvas>
+          </div>
+          <div class="scope-readout">
+            <div class="ro-cell"><div class="ro-label">Frequency</div><div class="ro-value" id="roFreq">--</div></div>
+            <div class="ro-cell"><div class="ro-label">Period</div><div class="ro-value" id="roPeriod">--</div></div>
+            <div class="ro-cell"><div class="ro-label">Duty</div><div class="ro-value" id="roDuty">--</div></div>
+            <div class="ro-cell"><div class="ro-label">High time</div><div class="ro-value" id="roHigh">--</div></div>
+            <div class="ro-cell"><div class="ro-label">Low time</div><div class="ro-value" id="roLow">--</div></div>
+            <div class="ro-cell"><div class="ro-label">V high/low</div><div class="ro-value" id="roVolt">--</div></div>
+          </div>
+        </div>
+
+        <div class="playbar" style="margin-top:14px;">
+          <button class="iconbtn primary" id="btnPlay" title="Play/Pause">
+            <svg id="playIcon" width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="iconbtn" id="btnRestart" title="Restart">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#152040" stroke-width="2"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 4v5h5"/></svg>
+          </button>
+          <button class="iconbtn" id="btnStep" title="Step one period">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#152040" stroke-width="2"><path d="M5 4v16l10-8z"/><path d="M18 4v16"/></svg>
+          </button>
+          <div style="flex:1;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;">SPEED</span>
+            <input type="range" id="speedSlider" min="0.1" max="2.5" step="0.05" value="1">
+          </div>
+          <span class="chip" id="speedChip">1.0&times;</span>
+        </div>
+      </div>
+
+      <!-- LOAD DEMO -->
+      <div class="panel" style="margin-top:16px;">
+        <div class="panel-head">
+          <div class="panel-title">Load response</div>
+          <div class="panel-sub" id="loadConnStatus">CONNECTED</div>
+        </div>
+        <div class="load-tabs" id="loadTabs">
+          <button class="load-tab active" data-load="led">LED brightness</button>
+          <button class="load-tab" data-load="motor">DC motor</button>
+          <button class="load-tab" data-load="servo">Servo</button>
+          <button class="load-tab" data-load="buzzer">Buzzer</button>
+        </div>
+        <div class="load-stage">
+          <svg id="loadSvg" width="100%" height="180" viewBox="0 0 420 180" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div id="loadCaption" class="explain-text" style="margin-top:10px;text-align:center;"></div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Controls</div></div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-row"><span class="ctrl-name">Duty cycle</span><span class="ctrl-val" id="dutyVal">25%</span></div>
+          <input type="range" id="dutySlider" min="0" max="100" step="1" value="25">
+        </div>
+
+        <div class="ctrl-group" id="freqGroup">
+          <div class="ctrl-row"><span class="ctrl-name">Frequency</span><span class="ctrl-val" id="freqVal">1 kHz</span></div>
+          <input type="range" id="freqSlider" min="0" max="100" step="1" value="46">
+        </div>
+
+        <div class="ctrl-group beginner-hide">
+          <div class="ctrl-row"><span class="ctrl-name">PWM mode</span></div>
+          <div class="seg" id="modeSeg">
+            <button class="active" data-mode="edge">Edge-aligned</button>
+            <button data-mode="center">Center-aligned</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group beginner-hide">
+          <div class="ctrl-row"><span class="ctrl-name">Polarity</span></div>
+          <div class="seg" id="polSeg">
+            <button class="active" data-pol="normal">Normal</button>
+            <button data-pol="inverted">Inverted</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group beginner-hide">
+          <div class="ctrl-row"><span class="ctrl-name">Timer resolution</span></div>
+          <div class="seg" id="resSeg">
+            <button data-res="8">8-bit</button>
+            <button class="active" data-res="10">10-bit</button>
+            <button data-res="16">16-bit</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group beginner-hide">
+          <div class="ctrl-row"><span class="ctrl-name">Prescaler</span><span class="ctrl-val" id="prescVal">&divide;64</span></div>
+          <input type="range" id="prescSlider" min="0" max="4" step="1" value="2">
+        </div>
+
+        <hr class="div" style="margin:14px 0;">
+
+        <div class="toggle-row">
+          <div><div class="tglabel">Show average level</div><div class="tgdesc">Effective analog-like average of the digital signal</div></div>
+          <label class="switch"><input type="checkbox" id="tgAvg"><span class="slider-tg"></span></label>
+        </div>
+        <div class="toggle-row beginner-hide">
+          <div><div class="tglabel">Low-pass filtered view</div><div class="tgdesc">What an RC filter would produce from this PWM</div></div>
+          <label class="switch"><input type="checkbox" id="tgFilter"><span class="slider-tg"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><div class="tglabel">Disconnect load</div><div class="tgdesc">Pin still switches, but nothing receives it</div></div>
+          <label class="switch"><input type="checkbox" id="tgConnect"><span class="slider-tg"></span></label>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;">
+        <div class="panel-head"><div class="panel-title" id="explainHeadLabel">What's happening</div></div>
+        <div class="explain-box">
+          <p class="explain-title" id="explainTitle">PWM output pin</p>
+          <p class="explain-text" id="explainText">Click any block in the signal chain to learn what it does.</p>
+          <span class="explain-deeper" id="explainDeeperBtn">Explain deeper &darr;</span>
+          <div class="explain-deep-text" id="explainDeep"></div>
+        </div>
+      </div>
+
+      <div class="panel beginner-hide" style="margin-top:16px;">
+        <div class="panel-head"><div class="panel-title">Timer / counter math</div></div>
+        <div class="adv-grid">
+          <div class="mathline">CPU clock <span class="op">=</span> <b id="mCpu">16 MHz</b></div>
+          <div class="mathline">Prescaler <span class="op">&divide;</span> <b id="mPresc">64</b></div>
+          <div class="mathline">Timer clock <span class="op">=</span> <b id="mTclk">250 kHz</b></div>
+          <div class="mathline">TOP <span class="op">=</span> <b id="mTop">1023</b></div>
+          <div class="mathline">Compare (OCR) <span class="op">=</span> <b id="mCmp">256</b></div>
+          <div class="mathline">Counter range <span class="op">=</span> <b id="mRange">0&ndash;1023</b></div>
+        </div>
+        <div class="mathline" style="margin-top:10px;">f<sub>PWM</sub> = f<sub>timer</sub> / (TOP+1) <span class="op">=</span> <b id="mFreqCalc">--</b></div>
+        <div id="quantWarn"></div>
+      </div>
+
+      <div class="panel beginner-hide" style="margin-top:16px;">
+        <div class="panel-head"><div class="panel-title">Live counter</div></div>
+        <div class="chips" style="margin-bottom:10px;">
+          <div class="chip">COUNTER <b id="chCounter">0</b></div>
+          <div class="chip">COMPARE <b id="chCompare">256</b></div>
+          <div class="chip">TOP <b id="chTop">1023</b></div>
+          <div class="chip">OUTPUT <b id="chOut">LOW</b></div>
+        </div>
+        <div id="eventLog" style="font-family:var(--mono);font-size:11.5px;color:var(--muted);min-height:18px;"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="credit">SIGNAL SOURCE: SIMULATED &middot; NOT CONNECTED TO REAL HARDWARE</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   STATE
+============================================================ */
+const state = {
+  beginner: true,
+  duty: 25,              // %
+  freqSliderPos: 46,      // 0-100 mapped log scale to Hz
+  freqHz: 1000,
+  mode: 'edge',           // edge | center
+  polarity: 'normal',     // normal | inverted
+  resolutionBits: 10,
+  prescaler: 64,
+  cpuClockHz: 16_000_000,
+  showAverage: false,
+  showFilter: false,
+  connected: true,
+  playing: true,
+  speed: 1.0,
+  loadType: 'led',
+  phase: 0,               // 0..1 position within one *display* period
+  displayPeriodMs: 1400,  // watchable duration of one on-screen cycle
+  selectedNode: null,
+  filterMem: 0,
+};
+
+const PRESCALER_STEPS = [1, 8, 64, 256, 1024];
+
+function freqFromSlider(pos){
+  // log scale 1 Hz .. 20000 Hz
+  const minL = Math.log10(1), maxL = Math.log10(20000);
+  const l = minL + (pos/100) * (maxL - minL);
+  return Math.pow(10, l);
+}
+function sliderFromFreq(f){
+  const minL = Math.log10(1), maxL = Math.log10(20000);
+  const l = Math.log10(f);
+  return Math.round(((l-minL)/(maxL-minL))*100);
+}
+state.freqHz = freqFromSlider(state.freqSliderPos);
+
+/* ============================================================
+   DERIVED TIMER MATH
+============================================================ */
+function computeTimer(){
+  const timerClk = state.cpuClockHz / state.prescaler;
+  const topMax = Math.pow(2, state.resolutionBits) - 1;
+  // requested TOP to hit freqHz as closely as possible, clamped to resolution
+  let topReq = Math.round(timerClk / state.freqHz) - 1;
+  const top = Math.max(1, Math.min(topMax, topReq));
+  const actualFreq = timerClk / (top + 1);
+  const compareReq = (state.duty/100) * top;
+  const compare = Math.round(compareReq);
+  const actualDuty = (compare / top) * 100;
+  return {
+    timerClk, top, topMax, actualFreq, compare, actualDuty,
+    period: 1/actualFreq,
+    highTime: (compare/top) * (1/actualFreq),
+    lowTime: (1/actualFreq) - (compare/top) * (1/actualFreq),
+    quantized: Math.abs(actualDuty - state.duty) > 0.15,
+    freqClamped: topReq !== top,
+  };
+}
+
+/* ============================================================
+   UNIT FORMATTING
+============================================================ */
+function fmtHz(hz){
+  if(hz >= 1000) return (hz/1000).toFixed(hz>=10000?0:2).replace(/\.00$/,'') + ' kHz';
+  return hz.toFixed(hz<10?2:1) + ' Hz';
+}
+function fmtTime(sec){
+  if(sec >= 1) return sec.toFixed(3)+' s';
+  if(sec >= 1e-3) return (sec*1e3).toFixed(sec*1e3>=10?1:2)+' ms';
+  if(sec >= 1e-6) return (sec*1e6).toFixed(sec*1e6>=10?0:1)+' \u00B5s';
+  return (sec*1e9).toFixed(0)+' ns';
+}
+
+/* ============================================================
+   BUILD CHAIN DIAGRAM (SVG)
+============================================================ */
+const chainSvg = document.getElementById('chainSvg');
+const NODES = [
+  {id:'clock',  x:10,  w:110, label:'CPU CLOCK', sub:()=>fmtHz(state.cpuClockHz)},
+  {id:'presc',  x:160, w:110, label:'PRESCALER',  sub:()=>'\u00F7 '+state.prescaler, adv:true},
+  {id:'timer',  x:310, w:130, label:'TIMER / COUNTER', sub:()=>'0\u2013'+computeTimer().top},
+  {id:'compare',x:480, w:120, label:'COMPARE (OCR)', sub:()=>String(computeTimer().compare)},
+  {id:'pwm',    x:640, w:110, label:'PWM LOGIC', sub:()=>state.mode==='edge'?'edge-aligned':'center-aligned'},
+  {id:'gpio',   x:790, w:90,  label:'GPIO PIN', sub:()=>'OUT'},
+  {id:'load',   x:900, w:70,  label:'LOAD', sub:()=>state.loadType.toUpperCase()},
+];
+const NODE_Y = 30, NODE_H = 56;
+
+function buildChain(){
+  let svg = '';
+  // connecting lines
+  for(let i=0;i<NODES.length-1;i++){
+    const a = NODES[i], b = NODES[i+1];
+    const x1 = a.x+a.w, x2 = b.x, y = NODE_Y+NODE_H/2;
+    svg += `<path class="chain-line" id="line-${i}" d="M${x1} ${y} L${x2} ${y}"/>`;
+    svg += `<circle class="flow-dot" id="dot-${i}" r="3" cx="${x1}" cy="${y}"/>`;
+  }
+  NODES.forEach(n=>{
+    svg += `<g class="node-box" id="node-${n.id}" data-node="${n.id}">
+      <rect class="node-rect" x="${n.x}" y="${NODE_Y}" width="${n.w}" height="${NODE_H}" rx="8"/>
+      <text class="node-label" x="${n.x+n.w/2}" y="${NODE_Y+24}" text-anchor="middle">${n.label}</text>
+      <text class="node-sub" id="sub-${n.id}" x="${n.x+n.w/2}" y="${NODE_Y+40}" text-anchor="middle">--</text>
+    </g>`;
+  });
+  // counter readout row
+  svg += `<text class="counter-text" id="counterBig" x="490" y="140" text-anchor="middle" font-size="15" fill="#152040">0</text>`;
+  svg += `<text x="490" y="158" text-anchor="middle" font-size="9.5" fill="#94A0B8" font-family="'IBM Plex Mono'">LIVE COUNTER VALUE</text>`;
+
+  // pin state indicator + wire to load
+  svg += `<circle class="pin-glow" id="pinGlow" cx="${790+45}" cy="${NODE_Y+NODE_H+14}" r="6" fill="#F0982A"/>`;
+  svg += `<text id="pinStateText" x="${790+45}" y="${NODE_Y+NODE_H+34}" text-anchor="middle" font-size="10" font-family="'IBM Plex Mono'" font-weight="700" fill="#5E6C87">LOW</text>`;
+
+  chainSvg.innerHTML = svg;
+
+  NODES.forEach(n=>{
+    document.getElementById('node-'+n.id).addEventListener('click', ()=> selectNode(n.id));
+  });
+}
+buildChain();
+
+function refreshChainLabels(){
+  const t = computeTimer();
+  NODES.forEach(n=>{
+    const el = document.getElementById('sub-'+n.id);
+    if(el) el.textContent = n.sub();
+  });
+}
+
+/* ============================================================
+   EXPLANATIONS
+============================================================ */
+const EXPLAIN = {
+  clock: {
+    title:'CPU clock',
+    text:'The microcontroller\u2019s clock source ticks at a fixed rate. Every timer in the chip counts these ticks \u2014 it\u2019s the heartbeat everything else is built from.',
+    deep:'A typical 8/16-bit MCU runs its core and peripherals from an internal RC oscillator or an external crystal, commonly in the 1\u201380 MHz range. This clock feeds the timer/counter peripheral, usually through a prescaler, so the timer doesn\u2019t have to count at the full CPU rate.'
+  },
+  presc: {
+    title:'Prescaler',
+    text:'The prescaler divides the CPU clock down before it reaches the timer, trading counting resolution for a lower, more usable timer clock.',
+    deep:'Common AVR-style prescaler values are \u00F71, \u00F78, \u00F764, \u00F7256 and \u00F71024. A higher prescaler value produces a slower timer clock, which lets you reach lower PWM frequencies without overflowing the counter register too quickly.'
+  },
+  timer: {
+    title:'Timer / counter',
+    text:'A hardware register that increments once per timer clock tick, counting from 0 up to a top value (TOP), then resets or reverses direction.',
+    deep:'In Fast PWM the counter counts 0 \u2192 TOP then snaps back to 0 (edge-aligned). In Phase-Correct / center-aligned PWM the counter counts up to TOP and back down to 0, which centers each pulse in the period and avoids certain switching glitches in motor control.'
+  },
+  compare: {
+    title:'Compare register (OCR)',
+    text:'A register holding the threshold value. The instant the live counter matches this value, the PWM output logic flips state \u2014 this is what actually sets duty cycle.',
+    deep:'Changing the compare value only changes the pulse width, not the timer period \u2014 which is why duty cycle can be adjusted independently of frequency in most PWM peripherals. Compare = duty% \u00d7 TOP, rounded to the nearest whole counter step.'
+  },
+  pwm: {
+    title:'PWM output logic',
+    text:'Combinational logic that watches the counter-vs-compare relationship and the configured mode/polarity, and decides whether the pin should currently be driven HIGH or LOW.',
+    deep:'This stage is where PWM mode (edge vs center-aligned) and polarity (normal vs inverted) are applied. The same counter and compare values can produce visually different waveforms depending on how this logic is configured.'
+  },
+  gpio: {
+    title:'GPIO / PWM pin',
+    text:'The physical output pin. It is still a plain digital pin \u2014 it only ever outputs HIGH or LOW voltage, switching rapidly under timer control.',
+    deep:'There is no analog circuitry inside a standard PWM pin. Any \u201cin-between\u201d effect (like medium LED brightness) is entirely due to the eye, an RC filter, or a motor\u2019s mechanical inertia averaging out fast digital transitions \u2014 not the pin itself producing an analog voltage.'
+  },
+  load: {
+    title:'Load / device',
+    text:'Whatever is connected to the pin responds to the digital pulses according to its own physical characteristics \u2014 an LED perceives average brightness, a motor averages torque, a filter averages voltage.',
+    deep:'Different loads respond to PWM differently: an LED\u2019s perceived brightness follows the duty cycle almost linearly to the eye; a DC motor (through a driver) responds to average voltage; a servo instead decodes the absolute pulse width in milliseconds rather than duty cycle; a buzzer\u2019s pitch follows frequency, not duty.'
+  },
+  duty: {
+    title:'Duty cycle',
+    text:'The percentage of each period the signal spends HIGH. 25% duty means the pin is HIGH for one quarter of every cycle and LOW for the rest.',
+    deep:'Duty cycle = HIGH time \u00f7 period \u00d7 100%. It is set by the compare register relative to TOP, so its precision is limited by timer resolution \u2014 an 8-bit timer can only represent 256 discrete duty steps.'
+  },
+  frequency: {
+    title:'Frequency',
+    text:'How many times the PWM pattern repeats per second. Higher frequency packs the same HIGH/LOW pattern into a shorter period.',
+    deep:'Frequency = 1 \u00f7 period = timer clock \u00f7 (TOP+1). Choosing frequency and resolution together is a trade-off: a higher TOP gives finer duty-cycle steps but forces a lower achievable frequency for a given timer clock.'
+  },
+  risingedge:{
+    title:'Rising edge',
+    text:'The instant the signal transitions from LOW to HIGH \u2014 marks the start of the active (HIGH) portion of the period.',
+    deep:'In edge-aligned mode the rising edge occurs exactly at counter reset (or overflow). In center-aligned mode it occurs symmetrically before the counter\u2019s peak, which is why the pulse appears centered in the period.'
+  },
+  fallingedge:{
+    title:'Falling edge',
+    text:'The instant the signal transitions from HIGH to LOW \u2014 this is triggered the moment the counter matches the compare register.',
+    deep:'The time between the rising and falling edge is the HIGH time. Because this transition is driven directly by a hardware compare match, it is extremely precise and jitter-free compared to software-toggled pins.'
+  },
+};
+
+let deepOpen = false;
+function selectNode(id){
+  state.selectedNode = id;
+  document.querySelectorAll('.node-box').forEach(n=>n.classList.remove('selected'));
+  const el = document.getElementById('node-'+id);
+  if(el) el.classList.add('selected');
+  showExplain(id);
+}
+function showExplain(key){
+  const e = EXPLAIN[key];
+  if(!e) return;
+  document.getElementById('explainTitle').textContent = e.title;
+  document.getElementById('explainText').textContent = e.text;
+  document.getElementById('explainDeep').textContent = e.deep;
+  deepOpen = false;
+  document.getElementById('explainDeep').classList.remove('show');
+  document.getElementById('explainDeeperBtn').textContent = 'Explain deeper \u2193';
+}
+document.getElementById('explainDeeperBtn').addEventListener('click', ()=>{
+  deepOpen = !deepOpen;
+  document.getElementById('explainDeep').classList.toggle('show', deepOpen);
+  document.getElementById('explainDeeperBtn').textContent = deepOpen ? 'Show less \u2191' : 'Explain deeper \u2193';
+});
+showExplain('gpio');
+
+/* ============================================================
+   OSCILLOSCOPE CANVAS
+============================================================ */
+const canvas = document.getElementById('scopeCanvas');
+const ctx = canvas.getContext('2d');
+function resizeCanvas(){
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width*dpr;
+  canvas.height = rect.height*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resizeCanvas);
+
+function pwmValueAt(t, dutyFrac, mode){
+  // t in [0,1) fraction of period. returns 0/1 high state (before polarity)
+  if(mode === 'center'){
+    // triangle-based compare: high centered
+    const half = dutyFrac/2;
+    const c = 0.5;
+    return (t >= c-half && t < c+half) ? 1 : 0;
+  }
+  return t < dutyFrac ? 1 : 0;
+}
+
+function drawScope(){
+  const rect = canvas.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0,0,W,H);
+  const timer = computeTimer();
+  const dutyFrac = timer.actualDuty/100;
+  const cycles = 3;
+  const padL = 46, padR = 14, padT = 18, padB = 30;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+  const highY = padT+plotH*0.22;
+  const lowY = padT+plotH*0.78;
+  const midY = (highY+lowY)/2;
+
+  // axis labels
+  ctx.font = "10px 'IBM Plex Mono'";
+  ctx.fillStyle = '#94A0B8';
+  ctx.fillText('HIGH', 4, highY+3);
+  ctx.fillText('LOW', 6, lowY+3);
+
+  // waveform path, sampled
+  const samples = 900;
+  ctx.beginPath();
+  let started = false;
+  const invert = state.polarity === 'inverted';
+  for(let i=0;i<=samples;i++){
+    const u = i/samples; // 0..1 across plotW representing `cycles` periods
+    const tPhase = (u*cycles) % 1;
+    let hi = pwmValueAt(tPhase, dutyFrac, state.mode);
+    if(!state.connected) hi = 0;
+    if(invert) hi = 1-hi;
+    const x = padL + u*plotW;
+    const y = hi ? highY : lowY;
+    if(!started){ ctx.moveTo(x,y); started = true; } else { ctx.lineTo(x,y); }
+  }
+  ctx.strokeStyle = '#2E63EB';
+  ctx.lineWidth = 2.2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // step transitions need vertical connectors -> redraw as proper step function
+  ctx.beginPath();
+  let prevY = null;
+  for(let i=0;i<=samples;i++){
+    const u = i/samples;
+    const tPhase = (u*cycles) % 1;
+    let hi = pwmValueAt(tPhase, dutyFrac, state.mode);
+    if(!state.connected) hi = 0;
+    if(invert) hi = 1-hi;
+    const x = padL + u*plotW;
+    const y = hi ? highY : lowY;
+    if(prevY===null){ ctx.moveTo(x,y); }
+    else if(y!==prevY){ ctx.lineTo(x,prevY); ctx.lineTo(x,y); }
+    else { ctx.lineTo(x,y); }
+    prevY = y;
+  }
+  ctx.strokeStyle = state.connected ? '#2E63EB' : '#C6CCDA';
+  ctx.lineWidth = 2.4;
+  ctx.stroke();
+
+  // average line
+  if(state.showAverage){
+    const avgFrac = invert ? 1-dutyFrac : dutyFrac;
+    const avgY = lowY - (lowY-highY)*avgFrac;
+    ctx.beginPath();
+    ctx.setLineDash([5,4]);
+    ctx.moveTo(padL, avgY); ctx.lineTo(padL+plotW, avgY);
+    ctx.strokeStyle = '#219A5B';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#219A5B';
+    ctx.font = "10px 'IBM Plex Mono'";
+    ctx.fillText('avg \u2248 '+avgFrac.toFixed(2).replace('0.','.')+'\u00d7VHIGH', padL+plotW-118, avgY-6);
+  }
+
+  // filtered (low-pass) view
+  if(state.showFilter){
+    const RC = 0.12; // smoothing factor visual only
+    let y = lowY;
+    ctx.beginPath();
+    for(let i=0;i<=samples;i++){
+      const u = i/samples;
+      const tPhase = (u*cycles) % 1;
+      let hi = pwmValueAt(tPhase, dutyFrac, state.mode);
+      if(invert) hi = 1-hi;
+      const target = hi ? highY : lowY;
+      y += (target-y)*RC;
+      const x = padL+u*plotW;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = '#7C5CEB';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // period measurement bracket for first cycle
+  const x0 = padL, x1 = padL+plotW/cycles;
+  const brY = H-padB+14;
+  ctx.strokeStyle = '#94A0B8';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x0, brY-4); ctx.lineTo(x0, brY+4);
+  ctx.moveTo(x1, brY-4); ctx.lineTo(x1, brY+4);
+  ctx.moveTo(x0, brY); ctx.lineTo(x1, brY);
+  ctx.stroke();
+  ctx.fillStyle = '#5E6C87';
+  ctx.font = "10px 'IBM Plex Mono'";
+  ctx.textAlign='center';
+  ctx.fillText('\u2190 period: '+fmtTime(timer.period)+' \u2192', (x0+x1)/2, brY+16);
+  ctx.textAlign='left';
+
+  // HIGH bracket
+  const hiStart = state.mode==='center' ? padL + plotW/cycles*(0.5-dutyFrac/2) : x0;
+  const hiEnd = state.mode==='center' ? padL + plotW/cycles*(0.5+dutyFrac/2) : padL+plotW/cycles*dutyFrac;
+  ctx.strokeStyle = '#F0982A';
+  ctx.beginPath();
+  ctx.moveTo(hiStart, highY-10); ctx.lineTo(hiEnd, highY-10);
+  ctx.moveTo(hiStart, highY-14); ctx.lineTo(hiStart, highY-6);
+  ctx.moveTo(hiEnd, highY-14); ctx.lineTo(hiEnd, highY-6);
+  ctx.stroke();
+  ctx.fillStyle='#B5710B';
+  ctx.font = "9.5px 'IBM Plex Mono'";
+  if(hiEnd-hiStart>34){ ctx.textAlign='center'; ctx.fillText('HIGH '+timer.actualDuty.toFixed(0)+'%', (hiStart+hiEnd)/2, highY-18); ctx.textAlign='left'; }
+
+  // trigger marker (sweep position based on animation phase)
+  const sweepX = padL + (state.phase % (1/cycles)) * cycles * plotW * cycles / cycles; // simplified below
+  const sx = padL + (state.phase*cycles*plotW) % plotW;
+  ctx.strokeStyle = '#DD4B4B';
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(sx, padT-6); ctx.lineTo(sx, H-padB+6); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#DD4B4B';
+  ctx.beginPath(); ctx.moveTo(sx-4, padT-6); ctx.lineTo(sx+4, padT-6); ctx.lineTo(sx, padT); ctx.fill();
+}
+
+/* ============================================================
+   LOAD PANEL RENDERING
+============================================================ */
+const loadSvg = document.getElementById('loadSvg');
+const loadCaption = document.getElementById('loadCaption');
+
+function renderLoad(){
+  const timer = computeTimer();
+  let dutyFrac = timer.actualDuty/100;
+  if(state.polarity==='inverted') dutyFrac = 1-dutyFrac;
+  if(!state.connected) dutyFrac = 0;
+
+  if(state.loadType === 'led'){
+    const brightness = state.connected ? dutyFrac : 0;
+    const glowR = 14 + brightness*46;
+    const core = `rgba(240,152,42,${0.55+0.45*brightness})`;
+    const glow = `rgba(240,152,42,${0.28*brightness})`;
+    loadSvg.innerHTML = `
+      <circle cx="210" cy="82" r="${glowR}" fill="${glow}"/>
+      <circle cx="210" cy="82" r="20" fill="${core}" stroke="#B5710B" stroke-width="1.5"/>
+      <path d="M197 68 L223 96 M223 68 L197 96" stroke="#8A5A0A" stroke-width="2" opacity="${0.3+0.3*brightness}"/>
+      <line x1="204" y1="102" x2="204" y2="130" stroke="#5E6C87" stroke-width="2"/>
+      <line x1="216" y1="102" x2="216" y2="130" stroke="#5E6C87" stroke-width="2"/>
+      <rect x="180" y="130" width="60" height="14" rx="3" fill="#EEF1F6" stroke="#DFE4ED"/>
+      <text x="210" y="140" text-anchor="middle" font-size="9" font-family="'IBM Plex Mono'" fill="#5E6C87">PWM PIN</text>`;
+    loadCaption.textContent = state.connected
+      ? `Perceived brightness \u2248 ${(brightness*100).toFixed(0)}% \u2014 the pin is still switching fully HIGH/LOW; the eye averages it.`
+      : `Disconnected: the pin keeps switching, but the LED receives nothing.`;
+  }
+
+  if(state.loadType === 'motor'){
+    const speed = state.connected ? dutyFrac : 0;
+    if(!window.__motorAngle) window.__motorAngle = 0;
+    loadSvg.innerHTML = `
+      <rect x="120" y="60" width="70" height="46" rx="6" fill="#EDEFF4" stroke="#C6CCDA"/>
+      <text x="155" y="87" text-anchor="middle" font-size="9" font-family="'IBM Plex Mono'" fill="#5E6C87">DRIVER</text>
+      <line x1="190" y1="83" x2="220" y2="83" stroke="#5E6C87" stroke-width="2.5"/>
+      <circle cx="255" cy="83" r="34" fill="#FAFBFD" stroke="#C6CCDA" stroke-width="2"/>
+      <g id="motorBlades" transform="translate(255,83) rotate(${window.__motorAngle})">
+        <rect x="-3" y="-30" width="6" height="26" rx="3" fill="#2E63EB"/>
+        <rect x="-3" y="4" width="6" height="26" rx="3" fill="#2E63EB"/>
+        <rect x="-30" y="-3" width="26" height="6" rx="3" fill="#2E63EB"/>
+        <rect x="4" y="-3" width="26" height="6" rx="3" fill="#2E63EB"/>
+      </g>
+      <circle cx="255" cy="83" r="6" fill="#152040"/>
+      <text x="197" y="140" text-anchor="middle" font-size="9" font-family="'IBM Plex Mono'" fill="#5E6C87">GPIO cannot drive a motor directly \u2014 a driver stage is required</text>`;
+    loadCaption.textContent = state.connected
+      ? `Average applied power \u2248 ${(speed*100).toFixed(0)}% of supply \u2014 motor speed follows the duty cycle.`
+      : `Disconnected: no drive signal reaches the motor driver.`;
+  }
+
+  if(state.loadType === 'servo'){
+    // servo uses absolute pulse width 1-2ms convention, at ~50Hz, independent framing
+    const pulseMs = 1 + (state.duty/100); // 1..2 ms from duty slider for demo purposes
+    const angle = ((pulseMs-1)/1)*180 - 90; // -90..+90
+    loadSvg.innerHTML = `
+      <rect x="150" y="100" width="90" height="50" rx="6" fill="#EDEFF4" stroke="#C6CCDA"/>
+      <circle cx="195" cy="100" r="26" fill="#FAFBFD" stroke="#C6CCDA" stroke-width="2"/>
+      <line x1="195" y1="100" x2="${195+40*Math.sin(angle*Math.PI/180)}" y2="${100-40*Math.cos(angle*Math.PI/180)}" stroke="#F0982A" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="195" cy="100" r="5" fill="#152040"/>
+      <text x="195" y="164" text-anchor="middle" font-size="9" font-family="'IBM Plex Mono'" fill="#5E6C87">pulse width, not duty %, sets angle</text>`;
+    loadCaption.textContent = `Pulse width \u2248 ${pulseMs.toFixed(2)} ms at ~50 Hz \u2192 target angle \u2248 ${angle.toFixed(0)}\u00b0. Servos decode absolute HIGH time, unlike duty-driven loads.`;
+  }
+
+  if(state.loadType === 'buzzer'){
+    const f = state.freqHz;
+    const toneHeight = Math.min(40, 6 + Math.log10(f+1)*10);
+    let waves = '';
+    for(let i=0;i<5;i++){
+      const r = 16 + i*14;
+      waves += `<circle cx="255" cy="90" r="${r}" fill="none" stroke="#7C5CEB" stroke-width="1.4" opacity="${0.5-i*0.09}"/>`;
+    }
+    loadSvg.innerHTML = `
+      <path d="M170 70 h30 l24 -20 v80 l-24 -20 h-30 z" fill="#EDEFF4" stroke="#C6CCDA" stroke-width="1.5"/>
+      ${waves}
+      <text x="255" y="150" text-anchor="middle" font-size="9" font-family="'IBM Plex Mono'" fill="#5E6C87">pitch follows frequency, not duty</text>`;
+    loadCaption.textContent = `Frequency \u2248 ${fmtHz(f)} \u2192 ${f<300?'low':(f<2000?'mid':'high')} simulated tone. Duty cycle mostly affects perceived loudness here, not pitch.`;
+  }
+}
+
+document.getElementById('loadTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.load-tab');
+  if(!btn) return;
+  document.querySelectorAll('.load-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.loadType = btn.dataset.load;
+  freqGroupVisibility();
+  renderLoad();
+});
+function freqGroupVisibility(){
+  document.getElementById('freqGroup').style.display = 'block';
+}
+
+/* ============================================================
+   READOUTS / CHIPS / MATH PANEL
+============================================================ */
+function refreshReadouts(){
+  const t = computeTimer();
+  document.getElementById('roFreq').textContent = fmtHz(t.actualFreq);
+  document.getElementById('roPeriod').textContent = fmtTime(t.period);
+  document.getElementById('roDuty').textContent = t.actualDuty.toFixed(1)+'%';
+  document.getElementById('roHigh').textContent = fmtTime(t.highTime);
+  document.getElementById('roLow').textContent = fmtTime(t.lowTime);
+  document.getElementById('roVolt').textContent = state.connected ? '3.3V / 0V' : '\u2013 / \u2013';
+  document.getElementById('scopeTimebase').textContent = fmtTime(t.period/4)+'/div';
+
+  document.getElementById('mCpu').textContent = fmtHz(state.cpuClockHz);
+  document.getElementById('mPresc').textContent = state.prescaler;
+  document.getElementById('mTclk').textContent = fmtHz(t.timerClk);
+  document.getElementById('mTop').textContent = t.top;
+  document.getElementById('mCmp').textContent = t.compare;
+  document.getElementById('mRange').textContent = '0\u2013'+t.top;
+  document.getElementById('mFreqCalc').textContent = fmtHz(t.actualFreq);
+
+  document.getElementById('chCompare').textContent = t.compare;
+  document.getElementById('chTop').textContent = t.top;
+
+  const quantEl = document.getElementById('quantWarn');
+  if(t.quantized){
+    quantEl.innerHTML = `<div class="warn-box">Requested duty ${state.duty.toFixed(1)}% cannot be represented exactly at this resolution. Actual achievable duty is <b>${t.actualDuty.toFixed(2)}%</b> (compare=${t.compare} of ${t.top}).</div>`;
+  } else { quantEl.innerHTML = ''; }
+
+  if(t.freqClamped){
+    quantEl.innerHTML += `<div class="err-box">Requested frequency needs TOP beyond the ${state.resolutionBits}-bit range. Actual frequency is <b>${fmtHz(t.actualFreq)}</b> instead of the nominal target.</div>`;
+  }
+
+  document.getElementById('loadConnStatus').textContent = state.connected ? 'CONNECTED' : 'DISCONNECTED';
+  document.getElementById('chainStatus').textContent = state.playing ? 'RUNNING' : 'PAUSED';
+}
+
+/* ============================================================
+   ANIMATION LOOP
+============================================================ */
+let lastTs = null;
+function tick(ts){
+  if(lastTs===null) lastTs = ts;
+  const dt = ts-lastTs; lastTs = ts;
+  if(state.playing){
+    state.phase = (state.phase + (dt/state.displayPeriodMs)*state.speed) % 1;
+  }
+  const timer = computeTimer();
+  let dutyFrac = timer.actualDuty/100;
+  let hi = pwmValueAt(state.phase, dutyFrac, state.mode);
+  if(state.polarity==='inverted') hi = 1-hi;
+  const pinHigh = state.connected ? hi : 0;
+
+  // update pin glow + chain live line
+  document.getElementById('pinGlow').classList.toggle('on', !!pinHigh);
+  document.getElementById('pinStateText').textContent = pinHigh ? 'HIGH' : 'LOW';
+  document.getElementById('pinStateText').style.fill = pinHigh ? '#F0982A' : '#5E6C87';
+  document.getElementById('chOut').textContent = pinHigh ? 'HIGH' : 'LOW';
+
+  for(let i=0;i<NODES.length-1;i++){
+    const line = document.getElementById('line-'+i);
+    const dot = document.getElementById('dot-'+i);
+    if(!line) continue;
+    const isLast = i >= 4; // pwm->gpio->load edges reflect actual pin state
+    const live = isLast ? !!pinHigh : true;
+    line.classList.toggle('live', live);
+    if(dot){
+      const a = NODES[i], b = NODES[i+1];
+      const x1=a.x+a.w, x2=b.x;
+      const u = (isLast ? state.phase : state.phase);
+      dot.setAttribute('cx', x1 + (x2-x1)*((ts/1000*0.6*state.speed)%1));
+      dot.style.opacity = live ? '1' : '0.25';
+      dot.setAttribute('fill', live ? '#2E63EB' : '#C6CCDA');
+    }
+  }
+
+  const counterVal = Math.round(state.phase*timer.top);
+  document.getElementById('counterBig').textContent = counterVal;
+  document.getElementById('chCounter').textContent = counterVal;
+
+  drawScope();
+  requestAnimationFrame(tick);
+}
+
+/* ============================================================
+   CONTROL BINDINGS
+============================================================ */
+function setDuty(v){
+  state.duty = v;
+  document.getElementById('dutyVal').textContent = v+'%';
+  document.getElementById('dutySlider').value = v;
+  refreshChainLabels(); refreshReadouts(); renderLoad();
+}
+document.getElementById('dutySlider').addEventListener('input', e=> setDuty(+e.target.value));
+
+function setFreqFromSlider(pos){
+  state.freqSliderPos = pos;
+  state.freqHz = freqFromSlider(pos);
+  document.getElementById('freqVal').textContent = fmtHz(state.freqHz);
+  refreshChainLabels(); refreshReadouts(); renderLoad();
+}
+document.getElementById('freqSlider').addEventListener('input', e=> setFreqFromSlider(+e.target.value));
+
+document.getElementById('modeSeg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  state.mode = b.dataset.mode;
+  refreshChainLabels(); refreshReadouts(); renderLoad();
+});
+document.getElementById('polSeg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#polSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  state.polarity = b.dataset.pol;
+  refreshReadouts(); renderLoad();
+});
+document.getElementById('resSeg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#resSeg button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  state.resolutionBits = +b.dataset.res;
+  refreshChainLabels(); refreshReadouts(); renderLoad();
+});
+document.getElementById('prescSlider').addEventListener('input', e=>{
+  const idx = +e.target.value;
+  state.prescaler = PRESCALER_STEPS[idx];
+  document.getElementById('prescVal').textContent = '\u00F7'+state.prescaler;
+  refreshChainLabels(); refreshReadouts(); renderLoad();
+});
+
+document.getElementById('tgAvg').addEventListener('change', e=>{ state.showAverage = e.target.checked; });
+document.getElementById('tgFilter').addEventListener('change', e=>{ state.showFilter = e.target.checked; });
+document.getElementById('tgConnect').addEventListener('change', e=>{
+  state.connected = !e.target.checked;
+  refreshReadouts(); renderLoad();
+});
+
+document.getElementById('btnPlay').addEventListener('click', ()=>{
+  state.playing = !state.playing;
+  document.getElementById('playIcon').innerHTML = state.playing
+    ? '<path d="M8 5v14l11-7z"/>'
+    : '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>';
+  refreshReadouts();
+});
+document.getElementById('btnRestart').addEventListener('click', ()=>{ state.phase = 0; });
+document.getElementById('btnStep').addEventListener('click', ()=>{
+  state.playing = false;
+  document.getElementById('playIcon').innerHTML = '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>';
+  state.phase = 0;
+  refreshReadouts();
+});
+document.getElementById('speedSlider').addEventListener('input', e=>{
+  state.speed = +e.target.value;
+  document.getElementById('speedChip').textContent = state.speed.toFixed(2)+'\u00d7';
+});
+
+document.getElementById('btnBeginner').addEventListener('click', ()=> setMode(true));
+document.getElementById('btnEngineer').addEventListener('click', ()=> setMode(false));
+function setMode(beginner){
+  state.beginner = beginner;
+  document.getElementById('btnBeginner').classList.toggle('active', beginner);
+  document.getElementById('btnEngineer').classList.toggle('active', !beginner);
+  document.body.classList.toggle('eng', !beginner);
+}
+
+/* ============================================================
+   INIT
+============================================================ */
+function init(){
+  resizeCanvas();
+  setDuty(state.duty);
+  setFreqFromSlider(state.freqSliderPos);
+  refreshChainLabels();
+  refreshReadouts();
+  renderLoad();
+  setMode(true);
+  requestAnimationFrame(tick);
+}
+init();
+
+})();
+</script>
+</body>
+</html>

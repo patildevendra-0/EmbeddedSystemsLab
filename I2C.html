@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>I&sup2;C Interactive Lab</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --bg:#F5F7FA;
+  --panel:#FFFFFF;
+  --border:#E1E5EC;
+  --border-strong:#C7CEDA;
+  --navy:#16233F;
+  --navy-2:#2A3A5C;
+  --muted:#697184;
+  --sda:#2F6FED;
+  --sda-dim:#B9D2FB;
+  --scl:#7B5CE0;
+  --scl-dim:#D6CCF7;
+  --active:#F2994A;
+  --active-dim:#FCE0C4;
+  --ack:#1FA971;
+  --ack-dim:#C9EEDD;
+  --err:#E5484D;
+  --err-dim:#FBD3D4;
+  --idle:#AEB4C2;
+  --radius:10px;
+  --shadow:0 1px 2px rgba(22,35,63,0.06);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--navy);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'IBM Plex Mono',monospace;}
+#app{max-width:1280px;margin:0 auto;padding:20px 20px 60px;}
+
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;background:var(--navy);border-radius:var(--radius);
+  color:#fff;margin-bottom:16px;flex-wrap:wrap;gap:10px;
+}
+.brand{display:flex;align-items:center;gap:10px;}
+.brand .mark{
+  width:30px;height:30px;border-radius:6px;background:linear-gradient(180deg,var(--sda),var(--scl));
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;
+  flex-shrink:0;
+}
+.brand h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px;}
+.brand p{font-size:11.5px;margin:1px 0 0;color:#B7C0D6;}
+
+.mode-toggle{display:flex;background:rgba(255,255,255,0.08);border-radius:999px;padding:3px;gap:2px;}
+.mode-toggle button{
+  border:none;background:transparent;color:#C6CEE2;font-family:inherit;font-size:12.5px;font-weight:600;
+  padding:7px 14px;border-radius:999px;cursor:pointer;transition:.15s;
+}
+.mode-toggle button.active{background:#fff;color:var(--navy);}
+
+.layout{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;}
+@media (max-width:980px){.layout{grid-template-columns:1fr;}}
+
+.panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:16px;margin-bottom:16px;
+}
+.panel h2{font-size:12.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+  margin:0 0 12px;font-weight:600;display:flex;align-items:center;justify-content:space-between;}
+
+.badge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--border);display:inline-flex;align-items:center;gap:5px;transition:color .2s ease, border-color .2s ease;}
+.badge #badgePulse{font-size:8px;line-height:1;}
+
+/* BUS STAGE */
+.stage-wrap{position:relative;}
+#busSvg{width:100%;height:auto;display:block;background:linear-gradient(180deg,#FBFCFE,#F5F7FA);border-radius:8px;border:1px solid var(--border);}
+.node-label{cursor:pointer;}
+.node-label:hover rect.dev-body{stroke:var(--navy-2);stroke-width:2;}
+
+/* CONTROLS */
+.controls-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.ctl-btn{
+  border:1px solid var(--border-strong);background:#fff;color:var(--navy);border-radius:8px;
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  font-size:14px;transition:.12s;
+}
+.ctl-btn:hover{background:var(--bg);}
+.ctl-btn.primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+.ctl-btn.primary:hover{background:var(--navy-2);}
+.ctl-btn:disabled{opacity:.35;cursor:default;}
+.speed-wrap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:auto;}
+.speed-wrap input{width:80px;}
+
+.preset-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.preset-btn{
+  flex:1;min-width:120px;border:1px solid var(--border);background:var(--bg);color:var(--navy-2);
+  padding:8px 10px;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;text-align:left;
+}
+.preset-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.preset-btn small{display:block;font-weight:400;color:var(--muted);font-size:10.5px;margin-top:1px;}
+.preset-btn.active small{color:#B7C0D6;}
+
+/* CURRENT TRANSACTION INFO */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-size:12.5px;}
+.info-grid .k{color:var(--muted);}
+.info-grid .v{font-weight:600;font-family:'IBM Plex Mono',monospace;}
+.phase-pill{
+  display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;
+  letter-spacing:.4px;text-transform:uppercase;
+}
+
+/* EXPLANATION */
+.explain-box{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;
+  font-size:13px;line-height:1.55;color:var(--navy-2);min-height:44px;
+}
+.explain-title{font-weight:700;color:var(--navy);margin-bottom:3px;font-size:12.5px;}
+.explain-deep{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-strong);color:var(--muted);font-size:12.3px;display:none;}
+.explain-deep.show{display:block;}
+.link-btn{background:none;border:none;color:var(--sda);font-size:12px;font-weight:600;cursor:pointer;padding:0;margin-top:6px;}
+
+/* BIT JOURNEY */
+.byte-row{display:flex;gap:5px;margin:8px 0;flex-wrap:wrap;}
+.bit-box{
+  width:26px;height:30px;border:1.5px solid var(--border-strong);border-radius:5px;
+  display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;
+  font-size:13px;font-weight:600;color:var(--muted);background:#fff;
+}
+.bit-box.active{border-color:var(--active);background:var(--active-dim);color:#8A4A16;}
+.bit-box.done{border-color:var(--sda);color:var(--sda);}
+.byte-label{font-size:10.5px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.4px;}
+
+/* WAVEFORM */
+#waveCanvas{width:100%;height:150px;display:block;border-radius:8px;border:1px solid var(--border);background:#fff;}
+
+/* CONFIG FORM */
+.field{margin-bottom:10px;}
+.field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600;}
+.field select,.field input{
+  width:100%;border:1px solid var(--border-strong);border-radius:7px;padding:7px 9px;
+  font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#fff;color:var(--navy);
+}
+.field select{font-family:'IBM Plex Sans',sans-serif;}
+
+/* DEVICE LIST INSIDE INSPECTOR */
+.dev-mini{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12px;}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot.gray{background:var(--idle);}
+.dot.green{background:var(--ack);}
+.dot.blue{background:var(--sda);}
+
+/* LEGEND */
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:10px;}
+.legend span{display:inline-flex;align-items:center;gap:5px;}
+.legend .sw{width:10px;height:10px;border-radius:3px;}
+
+.pullup-note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.pullup-note b{color:var(--navy-2);}
+
+.footer-note{text-align:center;font-size:11.5px;color:var(--muted);margin-top:6px;}
+
+/* ============ ANIMATION LAYER ============ */
+@keyframes fadeSlideUp{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+@keyframes popIn{ 0%{transform:scale(0.55); opacity:0;} 60%{transform:scale(1.12); opacity:1;} 100%{transform:scale(1);} }
+@keyframes pillPulse{ 0%{transform:scale(0.85); opacity:0;} 50%{transform:scale(1.05); opacity:1;} 100%{transform:scale(1); opacity:1;} }
+@keyframes ringPulse{ 0%{stroke-opacity:0.9; r:10;} 100%{stroke-opacity:0; r:34;} }
+@keyframes dashFlow{ to{ stroke-dashoffset:-24; } }
+@keyframes softBlink{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+@keyframes chipShake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-2px);} 75%{transform:translateX(2px);} }
+
+.anim-fade{ animation: fadeSlideUp .28s ease both; }
+.bit-box{ transition: border-color .18s ease, background .18s ease, color .18s ease, transform .18s ease; }
+.bit-box.active{ animation: popIn .3s cubic-bezier(.34,1.56,.64,1) both; }
+.phase-pill{ animation: pillPulse .32s cubic-bezier(.34,1.56,.64,1) both; }
+.ctl-btn{ transition: background .12s ease, transform .08s ease, border-color .12s ease; }
+.ctl-btn:active{ transform: scale(0.92); }
+.preset-btn{ transition: background .15s ease, color .15s ease, border-color .15s ease, transform .1s ease; }
+.preset-btn:hover{ transform: translateY(-1px); border-color: var(--border-strong); }
+#busSvg line{ transition: stroke .16s ease, stroke-width .16s ease; }
+#busSvg .dev-body{ transition: stroke .18s ease, filter .18s ease; }
+.node-label{ transition: filter .15s ease; }
+.node-label:hover{ filter: brightness(1.03); }
+.explain-box{ transition: background .2s ease; }
+#badgePulse.live{ animation: softBlink 1.1s ease-in-out infinite; }
+.step-track{ height:5px;border-radius:99px;background:var(--border);overflow:hidden;margin-top:10px; }
+.step-track-fill{ height:100%;background:linear-gradient(90deg,var(--sda),var(--scl));border-radius:99px;transition:width .25s cubic-bezier(.4,0,.2,1); }
+.mini-caption{ font-size:10.5px;color:var(--muted);display:flex;justify-content:space-between;margin-top:4px; }
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">I2C</div>
+      <div>
+        <h1>I&sup2;C Interactive Lab</h1>
+        <p>Watch a controller find, address, and exchange data with devices on a shared two-wire bus.</p>
+      </div>
+    </div>
+    <div class="mode-toggle" id="modeToggle">
+      <button data-mode="beginner" class="active">Beginner</button>
+      <button data-mode="engineer">Engineer</button>
+    </div>
+  </div>
+
+  <div class="panel" id="analogyPanel" style="background:linear-gradient(180deg,#F2F6FF,#FFFFFF);border-color:var(--sda-dim);">
+    <h2>Think of it like a classroom roll-call <button class="link-btn" id="analogyToggle" style="float:right;">Hide</button></h2>
+    <div id="analogyBody" style="font-size:13px;line-height:1.65;color:var(--navy-2);">
+      <b style="color:var(--navy)">Controller (MCU) = teacher.</b> The teacher starts roll-call (START) and claps a steady rhythm (SCL = clock) so everyone knows when to listen or answer.<br>
+      <b style="color:var(--navy)">Each device = a student</b> with their own name &mdash; that name is the device's address (e.g. Sensor = 0x48).<br>
+      <b style="color:var(--navy)">SDA = the shared microphone.</b> The teacher calls a name into it. Every student hears it, but <b>only the student whose name matches answers</b> &mdash; "Present!" &mdash; that answer is the ACK.<br>
+      <b style="color:var(--navy)">Data exchange</b> happens next, one word (bit) per clap of the rhythm.<br>
+      <b style="color:var(--navy)">STOP</b> = teacher says "that's all", the microphone goes quiet and idle again (pulled back up by the <b>pull-up resistor</b>, like the mic returning to its stand).
+      <div style="margin-top:8px;font-size:12px;color:var(--muted)">Once this picture makes sense, press play below and watch the exact same story happen on real SDA/SCL wires.</div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:220px;background:#fff;border:1px solid var(--sda-dim);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:11px;font-weight:700;color:var(--sda);text-transform:uppercase;letter-spacing:.4px;">SDA = the microphone</div>
+          <div style="font-size:12px;color:var(--navy-2);margin-top:3px;">One shared wire everyone talks on &mdash; names, "Present!", and data all travel here, one at a time.</div>
+        </div>
+        <div style="flex:1;min-width:220px;background:#fff;border:1px solid var(--scl-dim);border-radius:8px;padding:10px 12px;">
+          <div style="font-size:11px;font-weight:700;color:var(--scl);text-transform:uppercase;letter-spacing:.4px;">SCL = the clapping rhythm</div>
+          <div style="font-size:12px;color:var(--navy-2);margin-top:3px;">Doesn't carry words &mdash; just claps steadily so everyone knows exactly when to read what's on SDA.</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Tip: click SDA or SCL directly on the diagram below any time for this explanation again.</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT COLUMN -->
+    <div>
+      <div class="panel">
+        <h2>Shared bus <span class="badge" id="busStateBadge"><span id="badgePulse">&#9679;</span> BUS IDLE</span></h2>
+        <div class="stage-wrap">
+          <svg id="busSvg" viewBox="0 0 860 360" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--sda)"></i>SDA &mdash; data line</span>
+          <span><i class="sw" style="background:var(--scl)"></i>SCL &mdash; clock line</span>
+          <span><i class="sw" style="background:var(--ack)"></i>ACK</span>
+          <span><i class="sw" style="background:var(--err)"></i>NACK / error</span>
+          <span><i class="sw" style="background:var(--active)"></i>active byte field</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Controls</h2>
+        <div class="preset-row" id="presetRow"></div>
+        <div class="controls-row" style="margin-top:10px;">
+          <button class="ctl-btn" id="btnRestart" title="Restart">&#8634;</button>
+          <button class="ctl-btn" id="btnStepBack" title="Step back">&#9664;</button>
+          <button class="ctl-btn primary" id="btnPlay" title="Play/Pause">&#9654;</button>
+          <button class="ctl-btn" id="btnStepFwd" title="Step forward">&#9654;&#9654;</button>
+          <div class="speed-wrap">
+            <span>Speed</span>
+            <input type="range" id="speedSlider" min="1" max="4" step="1" value="2">
+          </div>
+        </div>
+        <div class="step-track"><div class="step-track-fill" id="stepFill" style="width:0%"></div></div>
+        <div class="mini-caption"><span id="stepCaption">Step 0 of 0</span><span id="stepPct">0%</span></div>
+      </div>
+
+      <div class="panel">
+        <h2>Live logic analyzer</h2>
+        <canvas id="waveCanvas"></canvas>
+      </div>
+
+      <div class="panel" id="internalPanel" style="display:none;">
+        <h2>Internal hardware view <span class="badge">engineer mode</span></h2>
+        <div id="internalContent" style="font-size:12.5px;line-height:1.6;color:var(--navy-2);"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDEBAR -->
+    <div>
+      <div class="panel">
+        <h2>Current transaction</h2>
+        <div class="info-grid">
+          <div class="k">Transaction</div><div class="v" id="infoTx">&mdash;</div>
+          <div class="k">Target</div><div class="v" id="infoTarget">&mdash;</div>
+          <div class="k">Address</div><div class="v" id="infoAddr">&mdash;</div>
+          <div class="k">Direction</div><div class="v" id="infoDir">&mdash;</div>
+          <div class="k">Phase</div><div class="v" id="infoPhase"><span class="phase-pill" style="background:var(--bg);color:var(--muted)">IDLE</span></div>
+          <div class="k">Bus</div><div class="v" id="infoBus">IDLE</div>
+        </div>
+
+        <div id="byteJourney"></div>
+      </div>
+
+      <div class="panel">
+        <h2>What's happening <button class="link-btn" id="explainDeepBtn">Explain deeper</button></h2>
+        <div class="explain-box">
+          <div class="explain-title" id="explainTitle">Ready</div>
+          <div id="explainBody">Choose a transaction and press play to watch the controller talk to a device on the bus.</div>
+          <div class="explain-deep" id="explainDeep"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Configure transaction</h2>
+        <div class="field">
+          <label>Target device</label>
+          <select id="cfgTarget"></select>
+        </div>
+        <div class="field" id="cfgRegWrap">
+          <label>Register / memory address</label>
+          <input type="text" id="cfgReg" value="0x00" maxlength="4">
+        </div>
+        <div class="field" id="cfgDataWrap">
+          <label>Data byte to write</label>
+          <input type="text" id="cfgData" value="0x55" maxlength="4">
+        </div>
+        <div class="field">
+          <label>Clock frequency</label>
+          <select id="cfgFreq">
+            <option value="100">Standard mode &mdash; 100 kHz</option>
+            <option value="400" selected>Fast mode &mdash; 400 kHz</option>
+            <option value="1000">Fast mode+ &mdash; 1 MHz</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Simulate</label>
+          <select id="cfgError">
+            <option value="none">Normal transaction</option>
+            <option value="wrong-address">Wrong address &mdash; no device responds</option>
+            <option value="nack-data">Device NACKs the data byte</option>
+            <option value="no-pullup">Missing pull-up resistors</option>
+          </select>
+        </div>
+        <button class="ctl-btn primary" style="width:100%;border-radius:8px;font-size:12.5px;font-weight:600;" id="btnApplyConfig">Build &amp; run transaction</button>
+      </div>
+
+      <div class="panel" id="inspectorPanel">
+        <h2>Inspector</h2>
+        <div id="inspectorBody" style="font-size:12.5px;line-height:1.6;color:var(--navy-2);">
+          Click the controller, a device, SDA, or SCL on the bus diagram to inspect it.
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <p class="footer-note">Behavior shown is representative of common I&sup2;C controller/target implementations &mdash; exact timing can vary by silicon vendor.</p>
+</div>
+
+<script>
+(function(){
+
+/* ============================== DEVICE MODEL ============================== */
+var CONTROLLER = {id:'mcu', name:'MCU Controller', short:'MCU'};
+var TARGETS = [
+  {id:'sensor', name:'Temp Sensor', short:'TMP', addr:0x48, kind:'sensor',
+    registers:[{addr:0x00,name:'TEMP_MSB',val:0x1A},{addr:0x01,name:'TEMP_LSB',val:0x80},{addr:0x02,name:'CONFIG',val:0x60}]},
+  {id:'eeprom', name:'EEPROM', short:'EE', addr:0x50, kind:'eeprom',
+    registers:[{addr:0x00,name:'MEM[0x00]',val:0x00},{addr:0x10,name:'MEM[0x10]',val:0x00},{addr:0x20,name:'MEM[0x20]',val:0xFF}]},
+  {id:'rtc', name:'RTC', short:'RTC', addr:0x68, kind:'rtc',
+    registers:[{addr:0x00,name:'SECONDS',val:0x00},{addr:0x02,name:'HOURS',val:0x14},{addr:0x04,name:'DAY',val:0x03}]},
+  {id:'oled', name:'OLED Display', short:'OLED', addr:0x3C, kind:'oled',
+    registers:[{addr:0x00,name:'CMD',val:0xAF},{addr:0x40,name:'DATA',val:0x00}]}
+];
+function findTarget(id){ for(var i=0;i<TARGETS.length;i++){ if(TARGETS[i].id===id) return TARGETS[i]; } return null; }
+
+/* ============================== STATE ============================== */
+var state = {
+  mode:'beginner',
+  preset:'read',
+  playing:false,
+  speedLevel:2,
+  eventIndex:-1,
+  events:[],
+  samples:[],
+  matchedDeviceId:null,
+  transactionFailed:false,
+  explainDeepOpen:false,
+  cfg:{ targetId:'sensor', reg:0x00, data:0x55, freq:400, error:'none', type:'read' }
+};
+var timer = null;
+
+/* ============================== BIT HELPERS ============================== */
+function toBits(value, n){
+  var out=[];
+  for(var i=n-1;i>=0;i--){ out.push((value>>i)&1); }
+  return out;
+}
+function hex(v,digits){ digits=digits||2; var s=v.toString(16).toUpperCase(); while(s.length<digits) s='0'+s; return '0x'+s; }
+
+/* ============================== TRANSACTION BUILDER ============================== */
+/*
+Event kinds: START, RSTART, STOP, BIT, ACKBIT
+Each BIT/ACKBIT: {kind, role, label, value, byteRole, driver, sub}
+role: 'address'|'register'|'data'
+driver: 'controller' | device id | 'none'  (who is driving SDA for that bit)
+*/
+function buildTransaction(cfg){
+  var target = findTarget(cfg.targetId);
+  var events = [];
+  var addrMatches = (cfg.error !== 'wrong-address');
+  var effectiveAddr = addrMatches ? target.addr : (target.addr ^ 0x03); // corrupt address on purpose
+
+  function pushByte(bits, role, driverForBits, ackDriver, ackValue, meta){
+    for(var i=0;i<bits.length;i++){
+      events.push({kind:'BIT', role:role, byteBits:bits, bitPos:i, value:bits[i], driver:driverForBits, meta:meta||{}});
+    }
+    events.push({kind:'ACKBIT', role:role, driver:ackDriver, value:ackValue, meta:meta||{}});
+  }
+
+  if(cfg.error === 'no-pullup'){
+    events.push({kind:'STUCK'});
+    return {events:events, target:target, addrMatches:false};
+  }
+
+  events.push({kind:'START'});
+
+  var addrBitsW = toBits(effectiveAddr,7).concat([0]); // write direction
+  var respondingDevice = addrMatches ? target.id : 'none';
+  var ackAfterAddr1 = addrMatches ? 1 : 0; // 1 = ACK(low), 0 = NACK
+  pushByte(addrBitsW, 'address', 'controller', respondingDevice, ackAfterAddr1, {phaseLabel:'ADDRESS + WRITE', addr:effectiveAddr, rw:0});
+
+  if(!addrMatches){
+    events.push({kind:'STOP', failed:true});
+    return {events:events, target:target, addrMatches:false};
+  }
+
+  if(cfg.type === 'write'){
+    var regBitsW = toBits(cfg.reg & 0xFF, 8);
+    pushByte(regBitsW, 'register', 'controller', target.id, 1, {phaseLabel:'REGISTER ADDRESS'});
+
+    var dataBitsW = toBits(cfg.data & 0xFF, 8);
+    var dataAck = (cfg.error === 'nack-data') ? 0 : 1;
+    pushByte(dataBitsW, 'data', 'controller', target.id, dataAck, {phaseLabel:'DATA BYTE'});
+
+    if(cfg.error === 'nack-data'){
+      events.push({kind:'STOP', failed:true});
+      return {events:events, target:target, addrMatches:true};
+    }
+    events.push({kind:'STOP'});
+  } else {
+    // READ: write register pointer, repeated start, read data
+    var regBitsR = toBits(cfg.reg & 0xFF, 8);
+    pushByte(regBitsR, 'register', 'controller', target.id, 1, {phaseLabel:'REGISTER ADDRESS'});
+
+    events.push({kind:'RSTART'});
+
+    var addrBitsR = toBits(effectiveAddr,7).concat([1]); // read direction
+    pushByte(addrBitsR, 'address', 'controller', target.id, 1, {phaseLabel:'ADDRESS + READ', addr:effectiveAddr, rw:1});
+
+    var readVal = 0x1A;
+    var reg = target.registers.filter(function(r){return r.addr===(cfg.reg&0xFF);})[0];
+    if(reg) readVal = reg.val;
+    var dataBitsR = toBits(readVal,8);
+    var finalAck = (cfg.error === 'nack-data') ? 1 : 0; // controller NACKs to end single-byte read
+    pushByte(dataBitsR, 'data', target.id, 'controller', finalAck, {phaseLabel:'DATA BYTE (from target)'});
+
+    events.push({kind:'STOP'});
+  }
+  return {events:events, target:target, addrMatches:true};
+}
+
+/* ============================== WAVEFORM SAMPLES ============================== */
+/* Build a full sample array [{scl,sda,eventIndex}] from events, for canvas rendering */
+function buildSamples(events){
+  var samples = [];
+  var sda = 1, scl = 1;
+  function push(s,d,ei){ samples.push({scl:s, sda:d, eventIndex:ei}); }
+  push(1,1,-1); // idle baseline
+
+  events.forEach(function(ev, idx){
+    if(ev.kind === 'START' || ev.kind === 'RSTART'){
+      if(ev.kind === 'RSTART'){
+        push(0, sda, idx);
+        push(1, 1, idx); // release sda high while scl low->high
+      }
+      push(1, 1, idx);
+      push(1, 0, idx); // start condition: sda falls while scl high
+      sda = 0;
+      push(0, 0, idx);
+      scl = 0;
+    } else if(ev.kind === 'BIT' || ev.kind === 'ACKBIT'){
+      sda = ev.value===1?1:0;
+      push(0, sda, idx);   // scl low, sda settles
+      push(1, sda, idx);   // scl high, sample point
+      push(1, sda, idx);
+      push(0, sda, idx);   // scl falls
+      scl = 0;
+    } else if(ev.kind === 'STOP'){
+      push(0, 0, idx);
+      push(1, 0, idx);
+      push(1, 1, idx);
+      sda = 1; scl = 1;
+      push(1, 1, idx);
+    } else if(ev.kind === 'STUCK'){
+      for(var k=0;k<6;k++) push(0,0,idx);
+    }
+  });
+  return samples;
+}
+
+/* ============================== EXPLANATIONS ============================== */
+function explainFor(ev, ctx){
+  if(!ev) return {title:'Ready', body:'Choose a transaction and press play to watch the controller talk to a device on the bus.', deep:''};
+  var target = ctx.target;
+  switch(ev.kind){
+    case 'START':
+      return {title:'START condition', body:'The controller pulls SDA low while SCL is still high. Every device on the bus notices and knows a new transaction is beginning.',
+        deep:'A START is a bus condition, not a data bit: SDA transitions high-to-low while SCL stays high. It is what tells every listening device "a transaction is starting" before any address bits appear.'};
+    case 'RSTART':
+      return {title:'Repeated START', body:'Instead of stopping, the controller issues another START right here. This lets it switch from writing the register pointer to reading data, without releasing the bus to other controllers.',
+        deep:'A repeated START looks electrically identical to a normal START, but it happens without an intervening STOP, so the bus is never released. This keeps the whole read operation atomic on multi-controller buses.'};
+    case 'STOP':
+      return {title: ev.failed ? 'Transaction aborted' : 'STOP condition', body: ev.failed ? 'The transaction could not continue, so the controller releases the bus. SDA and SCL both return high and the bus goes idle.' : 'The controller releases SDA while SCL is high, letting both lines return high. The bus is now idle and free for the next transaction.',
+        deep:'STOP is the mirror of START: SDA transitions low-to-high while SCL is high. Pull-up resistors are what actually pull both lines back to the idle HIGH state once every device releases them.'};
+    case 'STUCK':
+      return {title:'Bus stuck LOW', body:'Without pull-up resistors, nothing pulls SDA and SCL back HIGH after a device releases them. Both lines sit at LOW and no START condition can even be generated.',
+        deep:'I2C lines are open-drain: a device can only pull a line LOW or release it. Getting back to HIGH depends entirely on an external pull-up resistor to VCC. Remove the pull-ups and the bus cannot idle HIGH, so no valid START/STOP condition can form.'};
+    case 'BIT':
+      if(ev.role==='address'){
+        var bitLabel = ev.bitPos < 7 ? ('address bit A'+(6-ev.bitPos)) : 'R/W direction bit';
+        var extra = ev.bitPos===6 ? (' The full 7-bit address ' + hex(ev.meta.addr) + ' plus ' + (ev.meta.rw?'READ':'WRITE') + ' is now on the bus. Every device compares it to its own address.') : '';
+        return {title:'Sending address &mdash; '+bitLabel, body:'The controller drives SDA with each address bit while SCL pulses. Bit value: '+ev.value+'.'+extra,
+          deep:'The commonly-written 7-bit device address (e.g. '+hex(target.addr)+') is not what actually goes on the wire by itself. It is shifted left by one and combined with the R/W bit to form the 8-bit address byte that is transmitted.'};
+      } else if(ev.role==='register'){
+        return {title:'Sending register address', body:'The controller sends which internal register or memory location it wants to access &mdash; bit '+(7-ev.bitPos)+' = '+ev.value+'.',
+          deep:'Most I2C targets are organized as an internal register/memory map. This byte is not part of the I2C protocol itself &mdash; it is a convention almost all target devices follow so the controller can point at a specific location before reading or writing.'};
+      } else {
+        var who = ev.driver==='controller' ? 'controller' : target.name;
+        return {title:'Transferring data &mdash; bit '+(7-ev.bitPos), body: who + ' is driving SDA with bit '+(7-ev.bitPos)+' = '+ev.value+' while SCL times the transfer.',
+          deep:'Data is only considered valid while SCL is HIGH. It must not change while SCL is HIGH (that would look like a START or STOP), so all data changes happen while SCL is LOW.'};
+      }
+    case 'ACKBIT':
+      var acked = ev.value===1;
+      var responder = ev.driver==='controller' ? 'The controller' : (findTarget(ev.driver) ? findTarget(ev.driver).name : 'No device');
+      if(ev.driver==='none'){
+        return {title:'NACK &mdash; no response', body:'No device recognizes this address, so SDA is simply released and stays HIGH (pulled up). The controller reads this as a NACK.',
+          deep:'A NACK is really the absence of an ACK: nobody pulls SDA LOW during the acknowledge clock pulse, so the pull-up keeps it HIGH and the controller interprets HIGH-during-ACK as "not acknowledged".'};
+      }
+      if(acked){
+        return {title:'ACK', body: responder + ' pulls SDA LOW for one clock pulse to acknowledge the byte it just received.',
+          deep:'ACK/NACK always comes from whichever side received the previous byte: the target acknowledges address and write data; the controller acknowledges (or NACKs) data bytes it reads back from a target.'};
+      } else {
+        return {title:'NACK', body: responder + ' leaves SDA HIGH instead of pulling it LOW, signalling it will not continue (or, on a read, that the controller wants no more bytes).',
+          deep:'A NACK on a write usually signals an error (busy device, bad address, wrote too fast). A NACK from the controller after a read is completely normal &mdash; it is how the controller tells the target "that was the last byte, please release the bus."'};
+      }
+  }
+  return {title:'', body:'', deep:''};
+}
+
+/* ============================== DOM refs ============================== */
+var svg = document.getElementById('busSvg');
+var waveCanvas = document.getElementById('waveCanvas');
+var wctx = waveCanvas.getContext('2d');
+
+/* ============================== SVG DEVICE ICONS ============================== */
+function chipIcon(kind, cx, cy, w, h, color){
+  var pins = '';
+  var n = 3;
+  for(var i=0;i<n;i++){
+    var px = cx - w/2 + (w/(n+1))*(i+1);
+    pins += '<rect x="'+(px-1.5)+'" y="'+(cy-h/2-6)+'" width="3" height="6" fill="'+color+'" opacity="0.55"/>';
+    pins += '<rect x="'+(px-1.5)+'" y="'+(cy+h/2)+'" width="3" height="6" fill="'+color+'" opacity="0.55"/>';
+  }
+  var inner = '';
+  if(kind==='controller'){
+    inner = '<circle cx="'+cx+'" cy="'+cy+'" r="4" fill="'+color+'" opacity="0.85"/>' +
+            '<path d="M '+(cx-10)+' '+cy+' h 6 M '+(cx+4)+' '+cy+' h 6 M '+cx+' '+(cy-10)+' v 6 M '+cx+' '+(cy+4)+' v 6" stroke="'+color+'" stroke-width="1.6" opacity="0.6"/>';
+  } else if(kind==='sensor'){
+    inner = '<circle cx="'+cx+'" cy="'+cy+'" r="6" fill="none" stroke="'+color+'" stroke-width="1.6" opacity="0.8"/>' +
+            '<circle cx="'+cx+'" cy="'+cy+'" r="2" fill="'+color+'" opacity="0.8"/>';
+  } else if(kind==='eeprom'){
+    inner = '<rect x="'+(cx-9)+'" y="'+(cy-6)+'" width="18" height="12" rx="1.5" fill="none" stroke="'+color+'" stroke-width="1.4" opacity="0.75"/>' +
+            '<line x1="'+(cx-6)+'" y1="'+(cy-2)+'" x2="'+(cx+6)+'" y2="'+(cy-2)+'" stroke="'+color+'" stroke-width="1.2" opacity="0.55"/>' +
+            '<line x1="'+(cx-6)+'" y1="'+(cy+2)+'" x2="'+(cx+6)+'" y2="'+(cy+2)+'" stroke="'+color+'" stroke-width="1.2" opacity="0.55"/>';
+  } else if(kind==='rtc'){
+    inner = '<circle cx="'+cx+'" cy="'+cy+'" r="7" fill="none" stroke="'+color+'" stroke-width="1.6" opacity="0.8"/>' +
+            '<line x1="'+cx+'" y1="'+cy+'" x2="'+cx+'" y2="'+(cy-4)+'" stroke="'+color+'" stroke-width="1.4"/>' +
+            '<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+3)+'" y2="'+cy+'" stroke="'+color+'" stroke-width="1.4"/>';
+  } else if(kind==='oled'){
+    inner = '<rect x="'+(cx-10)+'" y="'+(cy-6)+'" width="20" height="12" rx="1" fill="none" stroke="'+color+'" stroke-width="1.6" opacity="0.8"/>' +
+            '<rect x="'+(cx-7)+'" y="'+(cy-3)+'" width="14" height="6" fill="'+color+'" opacity="0.25"/>';
+  }
+  return '<g>'+pins+'<rect class="dev-body" x="'+(cx-w/2)+'" y="'+(cy-h/2)+'" width="'+w+'" height="'+h+'" rx="8" fill="#fff" stroke="'+color+'" stroke-width="1.6"/>'+inner+'</g>';
+}
+
+/* ============================== SVG RENDER ============================== */
+var BUS_Y_SDA = 130, BUS_Y_SCL = 168, BUS_X0 = 130, BUS_X1 = 830;
+var CTRL_X = 70, CTRL_Y = 149;
+var deviceXs = {};
+
+function layoutTargets(){
+  var n = TARGETS.length;
+  var usable = BUS_X1 - 210;
+  TARGETS.forEach(function(t, i){
+    deviceXs[t.id] = 250 + i * (usable-40)/(n-1);
+  });
+}
+layoutTargets();
+
+function renderSVG(){
+  var driverInfo = getDriverInfo();
+  var sdaColor = driverInfo.sdaActive ? var_active_color(driverInfo.sdaColor) : var_idle_color();
+  var sclColor = driverInfo.sclHigh ? 'var(--scl)' : '#C9BFEF';
+
+  var html = '';
+  html += '<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--muted)"/></marker></defs>';
+
+  // pull-up resistors
+  html += pullupGlyph(BUS_X0+10, 40, 'SDA');
+  html += pullupGlyph(BUS_X0+70, 40, 'SCL');
+
+  // SDA line
+  html += '<g class="node-label" data-inspect="sda">';
+  html += '<line x1="'+BUS_X0+'" y1="'+(BUS_Y_SDA-10)+'" x2="'+BUS_X1+'" y2="'+(BUS_Y_SDA-10)+'" stroke="transparent" stroke-width="24"/>';
+  html += '<line x1="'+BUS_X0+'" y1="'+BUS_Y_SDA+'" x2="'+BUS_X1+'" y2="'+BUS_Y_SDA+'" stroke="'+driverInfo.sdaStroke+'" stroke-width="'+(driverInfo.sdaActive?4:2.5)+'" stroke-linecap="round"/>';
+  html += '<text x="'+(BUS_X0-14)+'" y="'+(BUS_Y_SDA+4)+'" text-anchor="end" class="mono" font-size="12" fill="var(--sda)" font-weight="600">SDA</text>';
+  html += '<text x="'+(BUS_X1+10)+'" y="'+(BUS_Y_SDA+4)+'" class="mono" font-size="11" fill="var(--muted)">'+(driverInfo.sdaActive?('= '+driverInfo.sdaVal):'idle')+'</text>';
+  html += '</g>';
+
+  // SCL line
+  html += '<g class="node-label" data-inspect="scl">';
+  html += '<line x1="'+BUS_X0+'" y1="'+(BUS_Y_SCL-10)+'" x2="'+BUS_X1+'" y2="'+(BUS_Y_SCL-10)+'" stroke="transparent" stroke-width="24"/>';
+  html += '<line x1="'+BUS_X0+'" y1="'+BUS_Y_SCL+'" x2="'+BUS_X1+'" y2="'+BUS_Y_SCL+'" stroke="'+driverInfo.sclStroke+'" stroke-width="'+(driverInfo.sclActive?4:2.5)+'" stroke-linecap="round"/>';
+  html += '<text x="'+(BUS_X0-14)+'" y="'+(BUS_Y_SCL+4)+'" text-anchor="end" class="mono" font-size="12" fill="var(--scl)" font-weight="600">SCL</text>';
+  html += '</g>';
+
+  // pull-up drop lines
+  html += '<line x1="'+(BUS_X0+10)+'" y1="52" x2="'+(BUS_X0+10)+'" y2="'+BUS_Y_SDA+'" stroke="var(--border-strong)" stroke-width="1.5"/>';
+  html += '<line x1="'+(BUS_X0+70)+'" y1="52" x2="'+(BUS_X0+70)+'" y2="'+BUS_Y_SCL+'" stroke="var(--border-strong)" stroke-width="1.5"/>';
+
+  // controller
+  html += '<line x1="'+CTRL_X+'" y1="'+CTRL_Y+'" x2="'+BUS_X0+'" y2="'+BUS_Y_SDA+'" stroke="var(--border-strong)" stroke-width="1.5" stroke-dasharray="3,3"/>';
+  html += '<line x1="'+CTRL_X+'" y1="'+CTRL_Y+'" x2="'+BUS_X0+'" y2="'+BUS_Y_SCL+'" stroke="var(--border-strong)" stroke-width="1.5" stroke-dasharray="3,3"/>';
+  html += '<g class="node-label" data-inspect="mcu">' + chipIcon('controller', CTRL_X, CTRL_Y, 78, 60, driverInfo.controllerActive?'var(--active)':'var(--navy-2)') +
+    '<text x="'+CTRL_X+'" y="'+(CTRL_Y+45)+'" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--navy)">Controller</text>' +
+    '<text x="'+CTRL_X+'" y="'+(CTRL_Y+58)+'" text-anchor="middle" font-size="9.5" fill="var(--muted)">MCU</text></g>';
+
+  // target devices
+  TARGETS.forEach(function(t){
+    var x = deviceXs[t.id];
+    var matched = state.matchedDeviceId === t.id;
+    var isNoneMatched = (state.matchedDeviceId === 'none');
+    var acking = driverInfo.ackingDevice === t.id;
+    var col = 'var(--idle)';
+    var status = 'listening';
+    if(matched){
+      col = acking ? 'var(--ack)' : 'var(--active)';
+      status = acking ? 'ACK sent' : 'ADDRESS MATCH';
+    } else if(state.matchedDeviceId && state.matchedDeviceId!=='none'){
+      col = 'var(--idle)';
+      status = 'ignoring (address mismatch)';
+    } else if(isNoneMatched){
+      col = 'var(--err)';
+      status = 'no match';
+    }
+    html += '<line x1="'+x+'" y1="'+(BUS_Y_SCL+38)+'" x2="'+x+'" y2="'+BUS_Y_SDA+'" stroke="var(--border-strong)" stroke-width="1.5" stroke-dasharray="3,3"/>';
+    html += '<line x1="'+(x+16)+'" y1="'+(BUS_Y_SCL+38)+'" x2="'+(x+16)+'" y2="'+BUS_Y_SCL+'" stroke="var(--border-strong)" stroke-width="1.5" stroke-dasharray="3,3"/>';
+    html += '<g class="node-label" data-inspect="'+t.id+'">' + chipIcon(t.kind, x+8, BUS_Y_SCL+70, 72, 54, col) +
+      '<text x="'+(x+8)+'" y="'+(BUS_Y_SCL+104)+'" text-anchor="middle" font-size="11.5" font-weight="600" fill="var(--navy)">'+t.name+'</text>' +
+      '<text x="'+(x+8)+'" y="'+(BUS_Y_SCL+117)+'" text-anchor="middle" font-size="10" class="mono" fill="'+col+'" font-weight="600">'+hex(t.addr)+'</text>' +
+      '<text x="'+(x+8)+'" y="'+(BUS_Y_SCL+130)+'" text-anchor="middle" font-size="9" fill="var(--muted)">'+status+'</text></g>';
+  });
+
+  // bus condition marker (START/STOP text near current position)
+  if(driverInfo.conditionLabel){
+    html += '<rect x="'+(BUS_X0+ (BUS_X1-BUS_X0)/2 - 55)+'" y="86" width="110" height="24" rx="12" fill="'+driverInfo.conditionColor+'" opacity="0.14"/>';
+    html += '<text x="'+(BUS_X0+(BUS_X1-BUS_X0)/2)+'" y="102" text-anchor="middle" font-size="12" font-weight="700" fill="'+driverInfo.conditionColor+'">'+driverInfo.conditionLabel+'</text>';
+  }
+
+  // traveling signal dot: shows data moving from whoever is driving toward the rest of the bus
+  if(driverInfo.sdaActive && driverInfo.travel){
+    var trav = driverInfo.travel;
+    html += '<circle r="5" fill="'+driverInfo.sdaStroke+'"><animateMotion dur="0.6s" repeatCount="1" fill="freeze" path="M '+trav.x1+' '+BUS_Y_SDA+' L '+trav.x2+' '+BUS_Y_SDA+'"/></circle>';
+  }
+
+  // pulse ring on the device currently sending ACK/NACK or matched
+  if(driverInfo.pulseDeviceX!==null){
+    html += '<circle cx="'+driverInfo.pulseDeviceX+'" cy="'+(BUS_Y_SCL+70)+'" r="10" fill="none" stroke="'+driverInfo.conditionColor+'" stroke-width="2"><animate attributeName="r" from="10" to="40" dur="0.65s" repeatCount="1" fill="freeze"/><animate attributeName="stroke-opacity" from="0.8" to="0" dur="0.65s" repeatCount="1" fill="freeze"/></circle>';
+  }
+
+  svg.innerHTML = html;
+  attachInspectHandlers();
+}
+
+function pullupGlyph(x,y,label){
+  return '<g data-inspect="pullup" class="node-label">' +
+    '<line x1="'+x+'" y1="10" x2="'+x+'" y2="'+y+'" stroke="var(--border-strong)" stroke-width="1.5"/>' +
+    '<rect x="'+(x-5)+'" y="'+y+'" width="10" height="16" fill="#fff" stroke="var(--border-strong)" stroke-width="1.4"/>' +
+    '<text x="'+x+'" y="6" text-anchor="middle" font-size="9" fill="var(--muted)">VCC</text>' +
+    '</g>';
+}
+function var_active_color(c){ return c; }
+function var_idle_color(){ return '#C7CEDA'; }
+
+function getDriverInfo(){
+  var info = {sdaActive:false, sdaStroke:'#C7CEDA', sdaColor:'var(--sda)', sdaVal:'', sclActive:false, sclStroke:'#D8CFF3', sclHigh:true,
+    controllerActive:false, ackingDevice:null, conditionLabel:'', conditionColor:'var(--navy-2)', travel:null, pulseDeviceX:null};
+  var ev = state.events[state.eventIndex];
+  if(!ev) return info;
+
+  if(ev.kind==='START'){ info.conditionLabel='START'; info.conditionColor='var(--sda)'; info.sdaActive=true; info.sdaStroke='var(--sda)'; info.controllerActive=true; info.sdaVal='falling'; info.travel={x1:CTRL_X, x2:BUS_X0}; }
+  else if(ev.kind==='RSTART'){ info.conditionLabel='REPEATED START'; info.conditionColor='var(--sda)'; info.sdaActive=true; info.sdaStroke='var(--sda)'; info.controllerActive=true; info.sdaVal='falling'; info.travel={x1:CTRL_X, x2:BUS_X0}; }
+  else if(ev.kind==='STOP'){ info.conditionLabel= ev.failed?'STOP (aborted)':'STOP'; info.conditionColor= ev.failed?'var(--err)':'var(--scl)'; info.sdaActive=true; info.sdaStroke='var(--scl)'; info.controllerActive=true; info.sdaVal='rising'; info.travel={x1:CTRL_X, x2:BUS_X0}; }
+  else if(ev.kind==='STUCK'){ info.conditionLabel='BUS STUCK LOW'; info.conditionColor='var(--err)'; info.sdaActive=true; info.sdaStroke='var(--err)'; info.sclStroke='var(--err)'; info.sclHigh=false; info.sdaVal='0 (stuck)'; }
+  else if(ev.kind==='BIT'){
+    info.sdaActive=true; info.sdaStroke=ev.driver==='controller' ? 'var(--sda)' : 'var(--active)';
+    info.sdaVal = ev.value;
+    info.controllerActive = ev.driver==='controller';
+    if(ev.driver!=='controller') info.ackingDevice=null;
+    info.sclActive=true; info.sclHigh=true;
+    info.conditionLabel = (ev.meta && ev.meta.phaseLabel) ? ev.meta.phaseLabel : '';
+    info.conditionColor='var(--active)';
+    if(ev.driver==='controller'){ info.travel={x1:CTRL_X, x2:BUS_X0}; }
+    else if(deviceXs[ev.driver]!==undefined){ info.travel={x1:deviceXs[ev.driver]+8, x2:BUS_X1}; info.pulseDeviceX = deviceXs[ev.driver]+8; }
+  } else if(ev.kind==='ACKBIT'){
+    info.sdaActive=true;
+    if(ev.driver==='none'){ info.sdaStroke='var(--err)'; info.sdaVal='1 (no ACK)'; }
+    else if(ev.value===1){ info.sdaStroke='var(--ack)'; info.sdaVal='0 (ACK)'; info.ackingDevice = ev.driver!=='controller'? ev.driver : null; }
+    else { info.sdaStroke='var(--err)'; info.sdaVal='1 (NACK)'; info.ackingDevice = ev.driver!=='controller'? ev.driver: null; }
+    info.controllerActive = ev.driver==='controller';
+    info.sclActive=true; info.sclHigh=true;
+    info.conditionLabel = ev.value===1 ? 'ACK' : 'NACK';
+    info.conditionColor = ev.value===1 ? 'var(--ack)' : 'var(--err)';
+    if(ev.driver!=='controller' && deviceXs[ev.driver]!==undefined){ info.travel={x1:deviceXs[ev.driver]+8, x2:BUS_X0}; info.pulseDeviceX = deviceXs[ev.driver]+8; }
+    else { info.travel={x1:CTRL_X, x2:BUS_X0}; }
+  }
+  return info;
+}
+
+/* ============================== WAVEFORM CANVAS ============================== */
+function renderWave(){
+  var dpr = window.devicePixelRatio || 1;
+  var w = waveCanvas.clientWidth, h = 150;
+  waveCanvas.width = w*dpr; waveCanvas.height = h*dpr;
+  wctx.setTransform(dpr,0,0,dpr,0,0);
+  wctx.clearRect(0,0,w,h);
+
+  var samples = state.samples;
+  if(!samples.length) return;
+
+  var maxSample = Math.max(1, activeSampleCount());
+  var visible = Math.max(24, maxSample);
+  var padL = 44, padR = 12;
+  var plotW = w - padL - padR;
+  var stepX = plotW / Math.max(1, visible-1);
+
+  var sclY0 = 34, sclY1 = 58;
+  var sdaY0 = 92, sdaY1 = 116;
+
+  wctx.strokeStyle = '#EDF0F5'; wctx.lineWidth = 1;
+  for(var g=0;g<=4;g++){ var gy = 10 + g*35; wctx.beginPath(); wctx.moveTo(padL, gy); wctx.lineTo(w-padR, gy); wctx.stroke(); }
+
+  wctx.font = '11px IBM Plex Mono, monospace';
+  wctx.fillStyle = '#7B5CE0'; wctx.fillText('SCL', 6, sclY0+5);
+  wctx.fillStyle = '#2F6FED'; wctx.fillText('SDA', 6, sdaY0+5);
+
+  function drawTrace(getVal, y0, y1, color){
+    wctx.beginPath();
+    var lastY = null;
+    for(var i=0;i<maxSample && i<samples.length;i++){
+      var v = getVal(samples[i]);
+      var x = padL + i*stepX;
+      var y = v ? y0 : y1;
+      if(lastY===null){ wctx.moveTo(x,y); }
+      else { wctx.lineTo(x,lastY); wctx.lineTo(x,y); }
+      lastY = y;
+    }
+    if(maxSample>0){
+      wctx.lineTo(padL+(maxSample-1)*stepX + stepX*0.6, lastY);
+    }
+    wctx.strokeStyle = color; wctx.lineWidth = 2.2; wctx.lineJoin='round'; wctx.stroke();
+  }
+  drawTrace(function(s){return s.scl;}, sclY0, sclY1, '#7B5CE0');
+  drawTrace(function(s){return s.sda;}, sdaY0, sdaY1, '#2F6FED');
+
+  // playhead
+  if(maxSample>0){
+    var px = padL + (maxSample-1)*stepX;
+    wctx.strokeStyle = '#F2994A'; wctx.lineWidth = 1.5;
+    wctx.beginPath(); wctx.moveTo(px,4); wctx.lineTo(px,132); wctx.stroke();
+  }
+}
+function activeSampleCount(){
+  if(state.eventIndex<0) return 1;
+  var count = 0;
+  for(var i=0;i<state.samples.length;i++){
+    if(state.samples[i].eventIndex <= state.eventIndex) count = i+1; else break;
+  }
+  return count;
+}
+
+/* ============================== TRANSACTION SETUP ============================== */
+function rebuildTransaction(){
+  var result = buildTransaction(state.cfg);
+  state.events = result.events;
+  state.samples = buildSamples(result.events);
+  state.currentTarget = result.target;
+  state.eventIndex = -1;
+  state.matchedDeviceId = null;
+  state.transactionFailed = false;
+  pause();
+  renderAll();
+}
+
+/* ============================== PLAYBACK ============================== */
+function speedMs(){
+  var map = {1:1100, 2:650, 3:380, 4:180};
+  return map[state.speedLevel]||650;
+}
+function play(){
+  if(state.eventIndex >= state.events.length-1) return;
+  state.playing = true;
+  updatePlayButton();
+  clearInterval(timer);
+  timer = setInterval(function(){
+    stepForward();
+    if(state.eventIndex >= state.events.length-1){ pause(); }
+  }, speedMs());
+}
+function pause(){ state.playing=false; clearInterval(timer); updatePlayButton(); }
+function updatePlayButton(){
+  document.getElementById('btnPlay').innerHTML = state.playing ? '&#10074;&#10074;' : '&#9654;';
+}
+function stepForward(){
+  if(state.eventIndex >= state.events.length-1) return;
+  state.eventIndex++;
+  processEventSideEffects();
+  renderAll();
+}
+function stepBack(){
+  if(state.eventIndex <= -1) return;
+  state.eventIndex--;
+  recomputeMatchUpTo(state.eventIndex);
+  renderAll();
+}
+function restart(){
+  pause();
+  state.eventIndex=-1; state.matchedDeviceId=null; state.transactionFailed=false;
+  renderAll();
+}
+function processEventSideEffects(){
+  var ev = state.events[state.eventIndex];
+  if(!ev) return;
+  if(ev.kind==='ACKBIT' && ev.role==='address'){
+    state.matchedDeviceId = ev.driver==='none' ? 'none' : ev.driver;
+  }
+}
+function recomputeMatchUpTo(idx){
+  state.matchedDeviceId=null;
+  for(var i=0;i<=idx;i++){
+    var ev = state.events[i];
+    if(ev && ev.kind==='ACKBIT' && ev.role==='address'){
+      state.matchedDeviceId = ev.driver==='none' ? 'none' : ev.driver;
+    }
+  }
+}
+
+/* ============================== RENDER: sidebars ============================== */
+function renderInfo(){
+  var t = state.currentTarget;
+  var ev = state.events[state.eventIndex];
+  document.getElementById('infoTx').textContent = state.cfg.type==='read' ? 'Read register from target' : 'Write register on target';
+  document.getElementById('infoTarget').textContent = t ? t.name : '\u2014';
+  document.getElementById('infoAddr').textContent = t ? hex(t.addr) : '\u2014';
+  document.getElementById('infoDir').textContent = state.cfg.type==='read' ? 'READ' : 'WRITE';
+
+  var phaseEl = document.getElementById('infoPhase');
+  var busEl = document.getElementById('infoBus');
+  var badge = document.getElementById('busStateBadge');
+
+  if(!ev){
+    phaseEl.innerHTML = '<span class="phase-pill" style="background:var(--bg);color:var(--muted)">IDLE</span>';
+    busEl.textContent='IDLE'; setBadge(badge,false);
+    return;
+  }
+  var label='', color='var(--active)';
+  if(ev.kind==='START'||ev.kind==='RSTART'){ label = ev.kind==='RSTART'?'REPEATED START':'START'; color='var(--sda)'; }
+  else if(ev.kind==='STOP'){ label='STOP'; color = ev.failed?'var(--err)':'var(--scl)'; }
+  else if(ev.kind==='STUCK'){ label='BUS STUCK'; color='var(--err)'; }
+  else if(ev.kind==='BIT'){ label = (ev.meta.phaseLabel||ev.role).toUpperCase(); color='var(--active)'; }
+  else if(ev.kind==='ACKBIT'){ label = ev.value===1?'ACK':'NACK'; color = ev.value===1?'var(--ack)':'var(--err)'; }
+
+  phaseEl.innerHTML = '<span class="phase-pill" style="background:'+color+'22;color:'+color+'">'+label+'</span>';
+  busEl.textContent = (state.eventIndex < state.events.length-1) ? 'ACTIVE' : (ev.kind==='STOP'?'IDLE':'ACTIVE');
+  setBadge(badge, busEl.textContent!=='IDLE');
+}
+function setBadge(badge, active){
+  badge.innerHTML = '<span id="badgePulse" class="'+(active?'live':'')+'">&#9679;</span> BUS '+(active?'ACTIVE':'IDLE');
+  badge.style.color = active ? 'var(--active)' : 'var(--muted)';
+  badge.style.borderColor = active ? 'var(--active-dim)' : 'var(--border)';
+}
+
+function renderByteJourney(){
+  var ev = state.events[state.eventIndex];
+  var el = document.getElementById('byteJourney');
+  if(!ev || (ev.kind!=='BIT' && ev.kind!=='ACKBIT')){
+    if(ev && (ev.kind==='START'||ev.kind==='RSTART')){ el.innerHTML='<div class="byte-label">Bus condition</div><div style="font-size:12.5px;color:var(--muted)">No byte is transmitted during START &mdash; it is a signalling condition on the wires.</div>'; return; }
+    if(ev && ev.kind==='STOP'){ el.innerHTML='<div class="byte-label">Bus condition</div><div style="font-size:12.5px;color:var(--muted)">STOP releases the bus &mdash; no byte is transmitted.</div>'; return; }
+    el.innerHTML=''; return;
+  }
+  var bits = ev.byteBits || null;
+  if(ev.kind==='ACKBIT'){
+    el.innerHTML = '<div class="byte-label">'+((ev.meta&&ev.meta.phaseLabel)||ev.role)+' &mdash; acknowledge bit</div>' +
+      '<div class="byte-row"><div class="bit-box active">'+ev.value+'</div></div>' +
+      '<div style="font-size:11.5px;color:var(--muted)">0 = ACK (pulled low) &nbsp;&middot;&nbsp; 1 = NACK (released, stays high)</div>';
+    return;
+  }
+  var html = '<div class="byte-label">'+(ev.meta.phaseLabel||ev.role)+' &mdash; byte '+hex(bitsToVal(bits))+'</div><div class="byte-row">';
+  bits.forEach(function(b,i){
+    var cls = i===ev.bitPos ? 'active' : (i<ev.bitPos ? 'done' : '');
+    var lbl = b;
+    if(ev.role==='address' && i===7-0 && bits.length===8 && i===7){}
+    html += '<div class="bit-box '+cls+'">'+lbl+'</div>';
+  });
+  html += '</div>';
+  if(ev.role==='address'){
+    html += '<div style="font-size:11px;color:var(--muted)">bits A6&hellip;A0 = 7-bit address, last bit = R/W ('+(bits[7]===1?'READ':'WRITE')+')</div>';
+  }
+  el.innerHTML = html;
+}
+function bitsToVal(bits){ var v=0; for(var i=0;i<bits.length;i++){ v=(v<<1)|bits[i]; } return v; }
+
+function renderExplain(){
+  var ev = state.events[state.eventIndex];
+  var ex = explainFor(ev, {target: state.currentTarget});
+  var titleEl = document.getElementById('explainTitle');
+  var bodyEl = document.getElementById('explainBody');
+  titleEl.innerHTML = ex.title;
+  bodyEl.innerHTML = ex.body;
+  titleEl.classList.remove('anim-fade'); void titleEl.offsetWidth; titleEl.classList.add('anim-fade');
+  bodyEl.classList.remove('anim-fade'); void bodyEl.offsetWidth; bodyEl.classList.add('anim-fade');
+  var deepEl = document.getElementById('explainDeep');
+  deepEl.innerHTML = ex.deep;
+  deepEl.className = 'explain-deep' + (state.explainDeepOpen? ' show':'');
+}
+
+function renderInternal(){
+  var panel = document.getElementById('internalPanel');
+  if(state.mode!=='engineer'){ panel.style.display='none'; return; }
+  panel.style.display='block';
+  var ev = state.events[state.eventIndex];
+  var t = state.currentTarget;
+  var html = '';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">';
+  html += '<div><b style="color:var(--navy)">Controller path</b><br>CPU &rarr; I&sup2;C peripheral &rarr; TX/RX shift register &rarr; clock generator &rarr; SDA/SCL pins.' +
+    (ev && (ev.kind==='BIT'||ev.kind==='ACKBIT') && ev.driver==='controller' ? '<br><span class="mono" style="color:var(--active)">shift register driving: '+ (ev.value!==undefined?ev.value:'') +'</span>' : '') + '</div>';
+  html += '<div><b style="color:var(--navy)">Target path</b><br>SDA/SCL pins &rarr; address decoder &rarr; protocol/state logic &rarr; register map ('+ (t? t.registers.map(function(r){return r.name;}).join(', ') : '') +').' +
+    (state.matchedDeviceId===((t||{}).id) ? '<br><span class="mono" style="color:var(--ack)">address decoder: MATCH on '+hex(t.addr)+'</span>' : '') + '</div>';
+  html += '</div>';
+  html += '<div class="pullup-note"><b>Open-drain behavior:</b> every device on this bus can only pull SDA/SCL LOW or release them. The lines return HIGH only because pull-up resistors to VCC are present. That is what lets multiple devices share the same two wires without conflict.</div>';
+  html += '<div class="pullup-note"><b>Clock stretching (optional, some targets):</b> if a target needs more time before it can respond, it holds SCL LOW even after the controller tries to release it high. The controller must wait for SCL to actually go high before continuing &mdash; so a slow target can pace a fast controller.</div>';
+  html += '<div class="pullup-note"><b>Arbitration (multi-controller buses only):</b> if two controllers start a transaction at the same time, each watches SDA while it transmits. The moment one sees a value on the bus that does not match what it just sent, it backs off and stops driving &mdash; the other controller continues, unaware anything happened. Not shown in this simulation, which uses a single controller.</div>';
+  document.getElementById('internalContent').innerHTML = html;
+}
+
+function renderControlsState(){
+  var atStart = state.eventIndex <= -1;
+  var atEnd = state.eventIndex >= state.events.length-1;
+  document.getElementById('btnStepBack').disabled = atStart;
+  document.getElementById('btnStepFwd').disabled = atEnd;
+  document.getElementById('btnPlay').disabled = atEnd && !state.playing;
+  document.getElementById('btnRestart').disabled = atStart;
+
+  var total = state.events.length;
+  var current = state.eventIndex+1;
+  var pct = total>0 ? Math.round((current/total)*100) : 0;
+  document.getElementById('stepFill').style.width = pct+'%';
+  document.getElementById('stepCaption').textContent = 'Step '+current+' of '+total;
+  document.getElementById('stepPct').textContent = pct+'%';
+}
+
+function renderAll(){
+  renderSVG();
+  renderWave();
+  renderInfo();
+  renderByteJourney();
+  renderExplain();
+  renderInternal();
+  renderControlsState();
+}
+
+/* ============================== INSPECTOR ============================== */
+function attachInspectHandlers(){
+  var nodes = svg.querySelectorAll('[data-inspect]');
+  nodes.forEach(function(n){
+    n.addEventListener('click', function(){
+      showInspector(n.getAttribute('data-inspect'));
+    });
+  });
+}
+function showInspector(id){
+  var body = document.getElementById('inspectorBody');
+  if(id==='mcu'){
+    body.innerHTML = '<b>Controller (MCU)</b><br>Generates START/STOP conditions, drives SCL as the clock source, and places address, register and data bytes on SDA. On a read, it releases SDA and lets the target drive data back.';
+    return;
+  }
+  if(id==='sda'){
+    body.innerHTML = '<b style="color:var(--sda)">SDA &mdash; Serial DATA line</b><br>' +
+      'Think of SDA as the <b>one shared microphone</b> passed around the classroom. Only one person talks into it at a time &mdash; the teacher calling a name, a student saying "Present!", or a student reading out data. Every device is wired to this same single wire, so whatever is said on it, everyone hears.<br><br>' +
+      '<span style="color:var(--muted);font-size:11.5px;">Carries: the address, register number, data bytes, and ACK/NACK &mdash; basically every actual "word" spoken during the transaction.</span>';
+    return;
+  }
+  if(id==='scl'){
+    body.innerHTML = '<b style="color:var(--scl)">SCL &mdash; Serial CLOCK line</b><br>' +
+      'Think of SCL as the <b>teacher\'s clapping rhythm</b> during roll-call. It doesn\'t carry any names or answers itself &mdash; it just claps steadily so everyone knows exactly *when* to speak or listen. One clap = one bit is read off the microphone (SDA).<br><br>' +
+      '<span style="color:var(--muted);font-size:11.5px;">Without this rhythm, nobody would know when a bit on SDA is meant to be read &mdash; SCL is what turns a wire into a synchronized, "clocked" conversation.</span>';
+    return;
+  }
+  if(id==='pullup'){
+    body.innerHTML = '<b>Pull-up resistor</b><br>I&sup2;C devices only pull the line LOW or release it (open-drain). A resistor to VCC is what actually returns the line to HIGH when every device has released it &mdash; without it the bus cannot idle HIGH.';
+    return;
+  }
+  var t = findTarget(id);
+  if(t){
+    var html = '<b>'+t.name+'</b> &mdash; address <span class="mono">'+hex(t.addr)+'</span><br>';
+    html += '<div style="margin-top:8px;">';
+    t.registers.forEach(function(r){
+      html += '<div class="dev-mini"><span class="dot '+(state.matchedDeviceId===t.id?'green':'gray')+'"></span><span class="mono" style="flex:1">'+hex(r.addr)+' &middot; '+r.name+'</span><span class="mono">'+hex(r.val)+'</span></div>';
+    });
+    html += '</div>';
+    html += '<div style="margin-top:6px;color:'+(state.matchedDeviceId===t.id?'var(--ack)':'var(--muted)')+';font-size:12px;">'+(state.matchedDeviceId===t.id?'Currently addressed / active on the bus.':'Currently idle &mdash; listening for its address.')+'</div>';
+    body.innerHTML = html;
+  }
+}
+
+/* ============================== CONFIG UI ============================== */
+function populateConfig(){
+  var sel = document.getElementById('cfgTarget');
+  sel.innerHTML = TARGETS.map(function(t){ return '<option value="'+t.id+'">'+t.name+' ('+hex(t.addr)+')</option>'; }).join('');
+  sel.value = state.cfg.targetId;
+
+  var presetRow = document.getElementById('presetRow');
+  var presets = [
+    {id:'read', label:'Read temperature', sub:'Sensor 0x48 \u2192 register read'},
+    {id:'write', label:'Write EEPROM byte', sub:'0x55 \u2192 EEPROM 0x50'}
+  ];
+  presetRow.innerHTML = presets.map(function(p){
+    return '<button class="preset-btn" data-preset="'+p.id+'">'+p.label+'<small>'+p.sub+'</small></button>';
+  }).join('');
+  presetRow.querySelectorAll('.preset-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      applyPreset(btn.getAttribute('data-preset'));
+    });
+  });
+  updatePresetHighlight();
+  updateFieldVisibility();
+}
+function updatePresetHighlight(){
+  document.querySelectorAll('.preset-btn').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-preset')===state.preset && state.cfg.error==='none');
+  });
+}
+function applyPreset(id){
+  state.preset = id;
+  if(id==='read'){
+    state.cfg = {targetId:'sensor', reg:0x00, data:0x55, freq:state.cfg.freq, error:'none', type:'read'};
+  } else {
+    state.cfg = {targetId:'eeprom', reg:0x10, data:0x55, freq:state.cfg.freq, error:'none', type:'write'};
+  }
+  syncConfigFormFromState();
+  rebuildTransaction();
+  updatePresetHighlight();
+}
+function updateFieldVisibility(){
+  var isWrite = state.cfg.type==='write';
+  document.getElementById('cfgDataWrap').style.display = isWrite ? 'block':'none';
+}
+function syncConfigFormFromState(){
+  document.getElementById('cfgTarget').value = state.cfg.targetId;
+  document.getElementById('cfgReg').value = hex(state.cfg.reg);
+  document.getElementById('cfgData').value = hex(state.cfg.data);
+  document.getElementById('cfgFreq').value = String(state.cfg.freq);
+  document.getElementById('cfgError').value = state.cfg.error;
+  updateFieldVisibility();
+}
+function parseHexInput(str, fallback){
+  var v = parseInt(str, 16);
+  if(isNaN(v)) return fallback;
+  return v & 0xFF;
+}
+
+/* ============================== EVENT WIRING ============================== */
+document.getElementById('analogyToggle').addEventListener('click', function(){
+  var body = document.getElementById('analogyBody');
+  var hidden = body.style.display==='none';
+  body.style.display = hidden ? 'block' : 'none';
+  this.textContent = hidden ? 'Hide' : 'Show';
+});
+
+document.getElementById('modeToggle').addEventListener('click', function(e){
+  var btn = e.target.closest('button');
+  if(!btn) return;
+  state.mode = btn.getAttribute('data-mode');
+  document.querySelectorAll('#modeToggle button').forEach(function(b){ b.classList.toggle('active', b===btn); });
+  renderAll();
+});
+
+document.getElementById('btnPlay').addEventListener('click', function(){
+  if(state.playing) pause(); else play();
+});
+document.getElementById('btnStepFwd').addEventListener('click', function(){ pause(); stepForward(); });
+document.getElementById('btnStepBack').addEventListener('click', function(){ pause(); stepBack(); });
+document.getElementById('btnRestart').addEventListener('click', restart);
+document.getElementById('speedSlider').addEventListener('input', function(e){
+  state.speedLevel = parseInt(e.target.value,10);
+  if(state.playing){ play(); }
+});
+document.getElementById('explainDeepBtn').addEventListener('click', function(){
+  state.explainDeepOpen = !state.explainDeepOpen;
+  renderExplain();
+});
+document.getElementById('btnApplyConfig').addEventListener('click', function(){
+  var targetId = document.getElementById('cfgTarget').value;
+  var reg = parseHexInput(document.getElementById('cfgReg').value, state.cfg.reg);
+  var data = parseHexInput(document.getElementById('cfgData').value, state.cfg.data);
+  var freq = parseInt(document.getElementById('cfgFreq').value,10);
+  var error = document.getElementById('cfgError').value;
+  state.cfg = {targetId:targetId, reg:reg, data:data, freq:freq, error:error, type:state.cfg.type};
+  state.preset = null;
+  rebuildTransaction();
+  updatePresetHighlight();
+});
+document.getElementById('cfgTarget').addEventListener('change', function(){});
+
+window.addEventListener('resize', function(){ renderWave(); });
+
+/* ============================== INIT ============================== */
+populateConfig();
+applyPreset('read');
+showInspector('mcu');
+
+})();
+</script>
+</body>
+</html>
