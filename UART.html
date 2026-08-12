@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UART Interactive Lab — Watch a Byte Travel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================= DESIGN TOKENS ============================= */
+:root{
+  --bg: #F3F5F8;
+  --panel: #FFFFFF;
+  --panel-2: #FAFBFC;
+  --ink: #0F1B2E;
+  --muted: #5B6478;
+  --faint: #8A93A6;
+  --line: #E2E6ED;
+  --line-strong: #C9CFDA;
+  --navy: #101E36;
+  --navy-2: #172A4A;
+
+  --sig-high: #2563EB;      /* signal HIGH / TX active */
+  --sig-high-soft: #DCE7FE;
+  --sig-low: #33415A;       /* signal LOW */
+  --data: #EA8C13;          /* data / bits */
+  --data-soft: #FCEACB;
+  --timing: #7C4DE0;        /* clock / timing */
+  --timing-soft: #E9E0FB;
+  --good: #16A34A;
+  --good-soft: #DCF3E4;
+  --bad: #DC2626;
+  --bad-soft: #FBDEDE;
+
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 16px;
+  --shadow-1: 0 1px 2px rgba(16,24,40,.06), 0 1px 1px rgba(16,24,40,.04);
+  --shadow-2: 0 6px 20px rgba(16,24,40,.08), 0 2px 6px rgba(16,24,40,.05);
+
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(1200px 500px at 15% -10%, #EDF1F8 0%, transparent 60%),
+    var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.45;
+}
+::selection{ background:var(--sig-high-soft); }
+button{ font-family:inherit; }
+input,select{ font-family:inherit; }
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-thumb{ background:var(--line-strong); border-radius:8px; }
+::-webkit-scrollbar-track{ background:transparent; }
+
+.wrap{ max-width:1360px; margin:0 auto; padding:22px 24px 80px; }
+
+/* ============================= HEADER ============================= */
+.app-header{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:24px;
+  padding:6px 2px 22px;
+  flex-wrap:wrap;
+}
+.brand{ display:flex; align-items:center; gap:12px; }
+.brand-mark{
+  width:38px; height:38px; border-radius:9px;
+  background:linear-gradient(155deg,var(--navy),var(--navy-2));
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: var(--shadow-1);
+  flex:none;
+}
+.brand-mark svg{ width:20px; height:20px; }
+.brand h1{
+  font-family:var(--font-display); font-weight:700; font-size:20px; letter-spacing:-.01em; margin:0;
+}
+.brand p{ margin:1px 0 0; font-size:12.5px; color:var(--muted); letter-spacing:.02em; }
+.header-status{
+  display:flex; align-items:center; gap:10px; font-family:var(--font-mono); font-size:12px; color:var(--muted);
+  background:var(--panel); border:1px solid var(--line); padding:8px 12px; border-radius:999px; box-shadow:var(--shadow-1);
+}
+.dot-live{ width:7px; height:7px; border-radius:50%; background:var(--good); box-shadow:0 0 0 3px var(--good-soft); }
+
+/* ============================= LAYOUT ============================= */
+.stage{
+  display:grid;
+  grid-template-columns: 260px 1fr;
+  gap:18px;
+  align-items:start;
+}
+@media (max-width:980px){ .stage{ grid-template-columns:1fr; } }
+
+.panel{
+  background:var(--panel); border:1px solid var(--line); border-radius:var(--radius-l);
+  box-shadow:var(--shadow-1);
+}
+.panel-pad{ padding:16px; }
+.panel-title{
+  font-family:var(--font-display); font-weight:600; font-size:12.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); margin:0 0 12px;
+  display:flex; align-items:center; gap:8px;
+}
+.panel-title .n{
+  font-family:var(--font-mono); font-size:10.5px; color:var(--faint); background:var(--panel-2); border:1px solid var(--line);
+  padding:1px 6px; border-radius:5px;
+}
+
+/* ============================= CONFIG SIDEBAR ============================= */
+.field{ margin-bottom:14px; }
+.field:last-child{ margin-bottom:0; }
+.field label{
+  display:block; font-size:11.5px; font-weight:600; color:var(--muted); margin-bottom:6px; letter-spacing:.02em;
+}
+.field select, .field input[type=text]{
+  width:100%; padding:8px 10px; border:1px solid var(--line-strong); border-radius:var(--radius-s);
+  background:var(--panel-2); font-size:13px; color:var(--ink); font-family:var(--font-mono);
+  transition:border-color .15s, box-shadow .15s;
+}
+.field select:focus, .field input:focus{
+  outline:none; border-color:var(--sig-high); box-shadow:0 0 0 3px var(--sig-high-soft); background:#fff;
+}
+.byte-row{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.byte-row .field{ margin-bottom:0; }
+.seg-toggle{ display:flex; border:1px solid var(--line-strong); border-radius:var(--radius-s); overflow:hidden; }
+.seg-toggle button{
+  flex:1; border:none; background:var(--panel-2); padding:7px 6px; font-size:11.5px; font-weight:600; color:var(--muted);
+  cursor:pointer; border-right:1px solid var(--line-strong); font-family:var(--font-mono);
+}
+.seg-toggle button:last-child{ border-right:none; }
+.seg-toggle button.active{ background:var(--navy); color:#fff; }
+
+hr.div{ border:none; border-top:1px solid var(--line); margin:16px 0; }
+
+.error-select{ display:flex; flex-direction:column; gap:6px; }
+.error-opt{
+  display:flex; align-items:flex-start; gap:8px; padding:8px 9px; border:1px solid var(--line); border-radius:var(--radius-s);
+  cursor:pointer; font-size:12px; color:var(--ink); background:var(--panel-2); transition:.12s;
+}
+.error-opt:hover{ border-color:var(--line-strong); }
+.error-opt.active{ border-color:var(--bad); background:var(--bad-soft); }
+.error-opt input{ margin-top:2px; }
+.error-opt .t{ font-weight:600; display:block; }
+.error-opt .d{ color:var(--muted); font-size:11px; display:block; margin-top:1px; }
+
+/* ============================= MAIN COLUMN ============================= */
+.main-col{ display:flex; flex-direction:column; gap:18px; min-width:0; }
+
+/* narration ticker */
+.narration{
+  display:flex; align-items:center; gap:12px; padding:11px 16px; border-radius:var(--radius-m);
+  background:var(--navy); color:#EAF0FF; box-shadow:var(--shadow-1);
+  font-size:13.5px; min-height:20px;
+}
+.narration .badge{
+  font-family:var(--font-mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+  background:rgba(255,255,255,.12); padding:3px 8px; border-radius:6px; flex:none; color:#BFD2FF;
+}
+.narration .txt{ font-weight:500; opacity:.96; }
+.narration .txt b{ color:#8FB4FF; font-weight:700; }
+
+/* hero */
+.hero{ padding:20px 20px 10px; position:relative; }
+.hero-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:8px;}
+.hero-title{ font-family:var(--font-display); font-weight:600; font-size:14px; color:var(--ink); }
+.view-tabs{ display:flex; gap:4px; background:var(--panel-2); border:1px solid var(--line); border-radius:999px; padding:3px; }
+.view-tabs button{
+  border:none; background:transparent; padding:6px 13px; border-radius:999px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer;
+}
+.view-tabs button.active{ background:var(--navy); color:#fff; }
+
+.svg-shell{ width:100%; overflow:visible; }
+#heroSvg text{ font-family:var(--font-mono); }
+.clickable{ cursor:pointer; }
+.clickable:hover .hoverable-fill{ filter:brightness(0.97); }
+
+/* byte journey strip */
+.journey{ display:flex; align-items:center; gap:6px; padding:0 20px 16px; flex-wrap:wrap; }
+.journey-node{
+  font-family:var(--font-mono); font-size:11.5px; font-weight:600; padding:6px 10px; border-radius:7px;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--faint); white-space:nowrap; transition:all .25s;
+}
+.journey-node.active{ background:var(--sig-high); color:#fff; border-color:var(--sig-high); box-shadow:0 0 0 4px var(--sig-high-soft); transform:translateY(-1px); }
+.journey-node.passed{ color:var(--muted); background:#fff; }
+.journey-arrow{ color:var(--line-strong); font-size:13px; }
+
+/* controls */
+.controls-bar{
+  display:flex; align-items:center; gap:10px; padding:12px 20px; border-top:1px solid var(--line); flex-wrap:wrap;
+}
+.ctl-btn{
+  border:1px solid var(--line-strong); background:var(--panel-2); width:36px; height:36px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--navy); transition:.12s;
+}
+.ctl-btn:hover{ background:#fff; border-color:var(--navy); }
+.ctl-btn.primary{ background:var(--navy); color:#fff; border-color:var(--navy); width:44px; height:36px; }
+.ctl-btn.primary:hover{ background:var(--navy-2); }
+.ctl-btn svg{ width:16px; height:16px; }
+.speed-group{ display:flex; align-items:center; gap:7px; margin-left:6px; }
+.speed-group label{ font-size:11px; color:var(--muted); font-weight:600; }
+.speed-group select{ padding:6px 8px; border-radius:7px; border:1px solid var(--line-strong); background:var(--panel-2); font-size:12px; font-family:var(--font-mono); }
+.scrub{ flex:1; min-width:140px; display:flex; align-items:center; gap:8px; }
+.scrub input[type=range]{ flex:1; accent-color:var(--sig-high); }
+.scrub .time{ font-family:var(--font-mono); font-size:11px; color:var(--muted); width:70px; text-align:right; }
+
+/* frame view */
+.frame-strip{ display:flex; padding:14px 20px 2px; gap:4px; overflow-x:auto; }
+.frame-cell{
+  font-family:var(--font-mono); font-size:11px; text-align:center; padding:8px 4px; border-radius:6px;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--muted); min-width:44px; flex:none; transition:all .2s;
+}
+.frame-cell .fl{ font-weight:700; font-size:10.5px; }
+.frame-cell .fv{ margin-top:3px; font-size:13px; font-weight:700; color:var(--ink); }
+.frame-cell.start{ border-color:var(--timing); }
+.frame-cell.data{ border-color:var(--data); }
+.frame-cell.parity{ border-color:#B08900; }
+.frame-cell.stop{ border-color:var(--good); }
+.frame-cell.active{ transform:translateY(-3px); box-shadow:var(--shadow-2); }
+.frame-cell.active.start{ background:var(--timing); border-color:var(--timing); color:#fff; }
+.frame-cell.active.start .fv{ color:#fff; }
+.frame-cell.active.data{ background:var(--data); border-color:var(--data); color:#fff; }
+.frame-cell.active.data .fv{ color:#fff; }
+.frame-cell.active.parity{ background:#B08900; border-color:#B08900; color:#fff; }
+.frame-cell.active.parity .fv{ color:#fff; }
+.frame-cell.active.stop{ background:var(--good); border-color:var(--good); color:#fff; }
+.frame-cell.active.stop .fv{ color:#fff; }
+.frame-cell.err{ background:var(--bad); border-color:var(--bad); color:#fff; }
+.frame-cell.err .fv{ color:#fff; }
+
+/* two-col grid: scope + inspector */
+.grid2{ display:grid; grid-template-columns: 1.55fr 1fr; gap:18px; align-items:start; }
+@media (max-width:980px){ .grid2{ grid-template-columns:1fr; } }
+
+.scope-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+canvas#scope{ width:100%; height:190px; display:block; border-radius:10px; background:
+  linear-gradient(var(--panel-2), var(--panel-2));
+  border:1px solid var(--line); }
+.scope-legend{ display:flex; gap:14px; margin-top:10px; flex-wrap:wrap; }
+.scope-legend span{ font-size:11px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+.swatch{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+
+/* inspector panel */
+.inspector-body{ min-height:190px; }
+.inspector-empty{ color:var(--faint); font-size:12.5px; text-align:center; padding:36px 10px; }
+.inspector-title{ font-family:var(--font-display); font-weight:700; font-size:15px; margin:0 0 6px; color:var(--ink); }
+.inspector-tag{ display:inline-block; font-family:var(--font-mono); font-size:10px; letter-spacing:.05em; text-transform:uppercase; background:var(--panel-2); border:1px solid var(--line); color:var(--muted); padding:2px 7px; border-radius:5px; margin-bottom:10px; }
+.inspector-body p{ font-size:13px; color:var(--ink); margin:0 0 10px; }
+.inspector-body p.more{ color:var(--muted); font-size:12.5px; }
+
+/* accordion sections */
+.section{ margin-top:4px; }
+.section-head{
+  display:flex; align-items:center; justify-content:space-between; padding:14px 18px; cursor:pointer; user-select:none;
+}
+.section-head h2{ font-family:var(--font-display); font-size:14.5px; font-weight:600; margin:0; display:flex; align-items:center; gap:9px; }
+.section-head .eyebrow{ font-family:var(--font-mono); font-size:10.5px; color:var(--faint); text-transform:uppercase; letter-spacing:.07em; }
+.chev{ transition:transform .2s; color:var(--faint); }
+.section.open .chev{ transform:rotate(180deg); }
+.section-body{ max-height:0; overflow:hidden; transition:max-height .3s ease; padding:0 18px; }
+.section.open .section-body{ padding-bottom:18px; }
+
+/* internals two-device layout */
+.internals-grid{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width:760px){ .internals-grid{ grid-template-columns:1fr; } }
+.device-internal{ background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:14px; }
+.di-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.di-head h3{ margin:0; font-size:12.5px; font-family:var(--font-display); }
+.stage-chain{ display:flex; flex-direction:column; gap:6px; }
+.stage-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:8px;
+  background:#fff; border:1px solid var(--line); font-size:11.5px; transition:all .2s;
+}
+.stage-row .label{ font-weight:600; color:var(--muted); }
+.stage-row .val{ font-family:var(--font-mono); font-weight:700; color:var(--ink); }
+.stage-row.active{ border-color:var(--sig-high); background:var(--sig-high-soft); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+.stage-row.active .label{ color:var(--navy); }
+.reg-bits{ display:flex; gap:3px; }
+.reg-bit{
+  width:16px; height:20px; border-radius:3px; background:var(--panel-2); border:1px solid var(--line-strong);
+  display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--faint);
+}
+.reg-bit.filled{ background:var(--data-soft); border-color:var(--data); color:var(--ink); }
+.reg-bit.sent{ opacity:.3; }
+.reg-bit.active{ background:var(--data); color:#fff; transform:scale(1.12); }
+
+/* real world diagram */
+.rw-chain{ display:flex; align-items:stretch; gap:0; overflow-x:auto; padding:6px 2px 14px; }
+.rw-step{
+  flex:none; width:150px; padding:12px; border:1px solid var(--line); border-radius:10px; background:var(--panel-2);
+  margin-right:20px; position:relative; cursor:pointer; transition:.15s;
+}
+.rw-step:hover{ border-color:var(--sig-high); background:#fff; }
+.rw-step::after{
+  content:"→"; position:absolute; right:-19px; top:50%; transform:translateY(-50%); color:var(--line-strong); font-size:15px;
+}
+.rw-step:last-child::after{ content:""; }
+.rw-step .k{ font-family:var(--font-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint); }
+.rw-step .t{ font-family:var(--font-display); font-weight:600; font-size:12.5px; margin-top:3px; }
+.rw-step .d{ font-size:10.5px; color:var(--muted); margin-top:4px; }
+.rw-legend{ display:flex; gap:16px; flex-wrap:wrap; margin-top:6px; }
+.rw-legend .item{ font-size:11.5px; color:var(--muted); }
+.rw-legend .item b{ color:var(--ink); }
+
+/* beginner strip */
+.beginner-toggle{ display:flex; align-items:center; gap:8px; }
+.switch{ position:relative; width:38px; height:21px; background:var(--line-strong); border-radius:20px; cursor:pointer; transition:.2s; flex:none; }
+.switch.on{ background:var(--sig-high); }
+.switch::after{ content:""; position:absolute; top:2px; left:2px; width:17px; height:17px; background:#fff; border-radius:50%; transition:.2s; box-shadow:var(--shadow-1); }
+.switch.on::after{ left:19px; }
+.switch-label{ font-size:11.5px; color:var(--muted); font-weight:600; }
+
+/* error banner */
+.error-banner{
+  display:none; margin:0 20px 14px; padding:12px 14px; border-radius:10px; background:var(--bad-soft); border:1px solid #F3B9B9;
+  font-size:12.5px; color:#7A1414;
+}
+.error-banner.show{ display:block; }
+.error-banner b{ display:block; margin-bottom:3px; font-family:var(--font-display); font-size:13px; }
+
+footer.foot{ text-align:center; color:var(--faint); font-size:11px; margin-top:26px; font-family:var(--font-mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============================= HEADER ============================= -->
+  <div class="app-header">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 12h5l2-6 4 12 2-6h5" stroke="#8FB4FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <h1>UART Interactive Lab</h1>
+        <p>Watch one byte travel from one device to another</p>
+      </div>
+    </div>
+    <div class="header-status">
+      <span class="dot-live"></span>
+      <span id="statusText">IDLE — line held HIGH</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <!-- ============================= LEFT: CONFIG ============================= -->
+    <div class="panel panel-pad" style="position:sticky; top:16px;">
+      <div class="panel-title">Transmission Setup</div>
+
+      <div class="byte-row" style="margin-bottom:14px;">
+        <div class="field">
+          <label for="inChar">Character</label>
+          <input type="text" id="inChar" maxlength="1" value="A">
+        </div>
+        <div class="field">
+          <label for="inHex">Hex</label>
+          <input type="text" id="inHex" maxlength="2" value="41">
+        </div>
+      </div>
+      <div class="field">
+        <label for="inBin">Binary</label>
+        <input type="text" id="inBin" maxlength="9" value="01000001">
+      </div>
+
+      <hr class="div">
+
+      <div class="field">
+        <label for="inBaud">Baud rate</label>
+        <select id="inBaud">
+          <option value="1200">1200</option>
+          <option value="2400">2400</option>
+          <option value="4800">4800</option>
+          <option value="9600" selected>9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600">57600</option>
+          <option value="115200">115200</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Data bits</label>
+        <div class="seg-toggle" id="segDataBits">
+          <button data-v="5">5</button><button data-v="6">6</button><button data-v="7">7</button><button data-v="8" class="active">8</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Parity</label>
+        <div class="seg-toggle" id="segParity">
+          <button data-v="none" class="active">None</button><button data-v="even">Even</button><button data-v="odd">Odd</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Stop bits</label>
+        <div class="seg-toggle" id="segStop">
+          <button data-v="1" class="active">1</button><button data-v="2">2</button>
+        </div>
+      </div>
+
+      <hr class="div">
+      <div class="panel-title">Fault Injection <span class="n">try one</span></div>
+      <div class="error-select" id="errorSelect">
+        <label class="error-opt active" data-v="none">
+          <input type="radio" name="err" value="none" checked>
+          <span><span class="t">No fault</span><span class="d">Clean, correctly configured link</span></span>
+        </label>
+        <label class="error-opt" data-v="baud">
+          <input type="radio" name="err" value="baud">
+          <span><span class="t">Baud mismatch</span><span class="d">Receiver samples at the wrong rate</span></span>
+        </label>
+        <label class="error-opt" data-v="parity">
+          <input type="radio" name="err" value="parity">
+          <span><span class="t">Parity mismatch</span><span class="d">Transmitter computes parity wrong</span></span>
+        </label>
+        <label class="error-opt" data-v="stop">
+          <input type="radio" name="err" value="stop">
+          <span><span class="t">Bad stop bit</span><span class="d">Line fails to return HIGH — framing error</span></span>
+        </label>
+        <label class="error-opt" data-v="miswire">
+          <input type="radio" name="err" value="miswire">
+          <span><span class="t">TX ↔ TX miswired</span><span class="d">Both devices drive the same line</span></span>
+        </label>
+        <label class="error-opt" data-v="disconnect">
+          <input type="radio" name="err" value="disconnect">
+          <span><span class="t">Wire disconnected</span><span class="d">No signal ever reaches RX</span></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ============================= RIGHT: MAIN COLUMN ============================= -->
+    <div class="main-col">
+
+      <div class="narration" id="narrationBar">
+        <span class="badge" id="narrBadge">IDLE</span>
+        <span class="txt" id="narrText">The line is idle. Press <b>Transmit</b> to send a byte from Device A to Device B.</span>
+      </div>
+
+      <!-- HERO -->
+      <div class="panel hero">
+        <div class="hero-top">
+          <div class="hero-title">Physical Link — Device A → Device B</div>
+          <div class="view-tabs" id="viewTabs">
+            <button class="active" data-view="concept">Conceptual</button>
+            <button data-view="realworld">Real-world</button>
+          </div>
+        </div>
+
+        <div id="conceptView">
+          <svg id="heroSvg" class="svg-shell" viewBox="0 0 1200 460" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div id="realworldView" style="display:none;">
+          <div class="rw-chain" id="rwChain"></div>
+          <div class="rw-legend">
+            <span class="item"><b>UART</b> — the on-chip peripheral &amp; protocol (TX/RX signalling)</span>
+            <span class="item"><b>USB-UART bridge</b> — converts UART levels to USB packets</span>
+            <span class="item"><b>RS-232 / RS-485</b> — different electrical standards, not UART itself</span>
+          </div>
+        </div>
+
+        <div class="error-banner" id="errorBanner"><b id="errBannerTitle"></b><span id="errBannerText"></span></div>
+
+        <div class="journey" id="journeyStrip"></div>
+
+        <div class="controls-bar">
+          <button class="ctl-btn" id="btnRestart" title="Restart">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 1 3 6.7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 6v6h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="ctl-btn" id="btnStepBack" title="Step back">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M18 6 9 12l9 6V6Z" fill="currentColor"/><rect x="5" y="6" width="2" height="12" fill="currentColor"/></svg>
+          </button>
+          <button class="ctl-btn primary" id="btnPlay" title="Play / pause">
+            <svg id="iconPlay" viewBox="0 0 24 24" fill="none"><path d="M7 5v14l11-7L7 5Z" fill="currentColor"/></svg>
+          </button>
+          <button class="ctl-btn" id="btnStepFwd" title="Step forward">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l9 6-9 6V6Z" fill="currentColor"/><rect x="17" y="6" width="2" height="12" fill="currentColor"/></svg>
+          </button>
+          <div class="speed-group">
+            <label>Speed</label>
+            <select id="inSpeed">
+              <option value="0.25">0.25× slow-mo</option>
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+              <option value="4">4×</option>
+            </select>
+          </div>
+          <div class="scrub">
+            <input type="range" id="scrubber" min="0" max="1000" value="0">
+            <span class="time" id="scrubTime">0 / 0 ms</span>
+          </div>
+        </div>
+
+        <div class="frame-strip" id="frameStrip"></div>
+      </div>
+
+      <!-- SCOPE + INSPECTOR -->
+      <div class="grid2">
+        <div class="panel panel-pad">
+          <div class="scope-head">
+            <div class="panel-title" style="margin:0;">Live Oscilloscope</div>
+            <span style="font-family:var(--font-mono); font-size:11px; color:var(--faint);" id="scopeBaud">9600 baud</span>
+          </div>
+          <canvas id="scope" width="900" height="380"></canvas>
+          <div class="scope-legend">
+            <span><span class="swatch" style="background:var(--sig-high);"></span>HIGH = 1</span>
+            <span><span class="swatch" style="background:var(--sig-low);"></span>LOW = 0</span>
+            <span><span class="swatch" style="background:var(--good);"></span>Correct sample</span>
+            <span><span class="swatch" style="background:var(--bad);"></span>Faulty sample</span>
+            <span><span class="swatch" style="background:var(--timing);"></span>Cursor</span>
+          </div>
+        </div>
+
+        <div class="panel panel-pad">
+          <div class="panel-title" style="margin:0 0 10px;">Inspector <span class="n">click any part</span></div>
+          <div class="inspector-body" id="inspectorBody">
+            <div class="inspector-empty">Click on the CPU, UART, TX/RX pins, wire, waveform, or sampling marker to learn what it does.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXPLORE INTERNALS -->
+      <div class="panel section" id="secInternals">
+        <div class="section-head" onclick="toggleSection('secInternals')">
+          <h2><span class="eyebrow">Explore</span> Device Internals</h2>
+          <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="section-body">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+            <p style="margin:0; font-size:12.5px; color:var(--muted); max-width:640px;">The same live transmission, shown at register level. Watch the byte load into the TX data register, shift out one bit at a time, cross the wire, and shift back into the RX register.</p>
+            <div class="beginner-toggle">
+              <span class="switch-label">Engineer detail</span>
+              <div class="switch" id="engToggle"></div>
+            </div>
+          </div>
+          <div class="internals-grid">
+            <div class="device-internal">
+              <div class="di-head"><h3>Device A — Transmitter</h3><span class="inspector-tag">TX path</span></div>
+              <div class="stage-chain" id="txChain"></div>
+            </div>
+            <div class="device-internal">
+              <div class="di-head"><h3>Device B — Receiver</h3><span class="inspector-tag">RX path</span></div>
+              <div class="stage-chain" id="rxChain"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REAL WORLD (duplicated content anchor handled in hero tab) -->
+      <div class="panel section" id="secBeginner">
+        <div class="section-head" onclick="toggleSection('secBeginner')">
+          <h2><span class="eyebrow">Learn</span> What's happening, in plain language</h2>
+          <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="section-body">
+          <div id="beginnerList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+
+      <footer class="foot">UART INTERACTIVE LAB · ASYNCHRONOUS SERIAL, ONE BIT AT A TIME</footer>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ======================================================================
+   UART INTERACTIVE LAB — SIMULATION ENGINE
+   ====================================================================== */
+
+/* ---------- explanation dictionary (used by Inspector on click) ---------- */
+const EXPLAIN = {
+  cpuA: {tag:'CPU · Device A', title:'CPU', body:'The processor holds the byte it wants to send in ordinary memory or a register. It does not know or care how UART turns that byte into signalling — it simply hands the byte to the UART peripheral and moves on.', more:'On a real MCU this is often a single write to a "data register" memory address.'},
+  uartA: {tag:'UART peripheral · Device A', title:'UART (transmitter)', body:'A small piece of hardware that converts a parallel byte into a serial stream of bits, adds start/stop framing and optional parity, and drives the TX pin at the configured baud rate.', more:'UART = Universal Asynchronous Receiver / Transmitter. "Asynchronous" means no shared clock line is sent — both sides agree on timing in advance via the baud rate.'},
+  txReg: {tag:'Register', title:'TX Data Register', body:'Holds the raw byte exactly as the CPU wrote it, before framing is added. The UART copies this into the shift register at the start of transmission.', more:''},
+  txShift: {tag:'Register', title:'TX Shift Register', body:'The byte is loaded here, then shifted out one bit at a time — least-significant bit first — onto the TX pin, synchronised to the baud clock.', more:''},
+  txPin: {tag:'Pin', title:'TX (Transmit)', body:'The physical output pin. Its voltage is switched HIGH or LOW to match the bit currently being sent. This is the only pin that "speaks" on this side of the link.', more:'Idle TX sits HIGH — that is how the receiver knows the line is not currently broken or busy.'},
+  wire: {tag:'Physical connection', title:'The Wire', body:'A single conductor carrying one electrical signal at a time. Its voltage level directly represents the current bit: HIGH for 1, LOW for 0. Notice the wire is literally drawn as the waveform — that is not decoration, it is the same signal.', more:'UART needs a common ground reference (GND↔GND) between both devices so "HIGH" means the same thing on both ends.'},
+  rxPin: {tag:'Pin', title:'RX (Receive)', body:'The physical input pin that watches the wire\'s voltage. The receiver does not control this line — it only observes it.', more:''},
+  sample: {tag:'Event', title:'Sampling Point', body:'The receiver does not trust the very edge of a bit (it may still be settling). Instead it waits until roughly the middle of the bit period and reads the voltage exactly once. That single reading becomes the bit value.', more:'This is why baud-rate agreement matters so much: if the receiver\'s clock drifts, it samples closer to the edge of the bit — or the wrong bit entirely.'},
+  rxShift: {tag:'Register', title:'RX Shift Register', body:'Each sampled bit is shifted into this register, LSB first, until a full byte has been rebuilt.', more:''},
+  rxReg: {tag:'Register', title:'RX Data Register', body:'Once the frame completes, the reconstructed byte is copied here — this is what the CPU actually reads.', more:''},
+  fifo: {tag:'Buffer', title:'FIFO', body:'A small first-in-first-out buffer that holds received bytes if the CPU is briefly busy and cannot read them the instant they arrive. Prevents bytes being lost between interrupts.', more:'Engineer detail: shallow FIFOs (2–16 bytes) are typical on microcontrollers.'},
+  interrupt: {tag:'Mechanism', title:'Interrupt', body:'Rather than the CPU constantly polling "has a byte arrived yet?", the UART can raise an interrupt the instant a byte (or FIFO threshold) is ready, letting the CPU do other work in the meantime.', more:''},
+  dma: {tag:'Mechanism', title:'DMA', body:'Direct Memory Access lets the UART peripheral move received bytes straight into memory without the CPU copying them one by one — useful for high-throughput or low-power designs.', more:''},
+  cpuB: {tag:'CPU · Device B', title:'CPU', body:'Once the byte is reconstructed, the CPU reads it from the RX data register (or FIFO) — from its point of view, it just received a byte, with no awareness of the serial framing that carried it.', more:''},
+  uartB: {tag:'UART peripheral · Device B', title:'UART (receiver)', body:'Watches RX for the falling edge that signals a start bit, synchronises to it, samples each subsequent bit at the correct moment, checks parity if enabled, and confirms the stop bit(s).', more:''},
+  frame: {tag:'Concept', title:'UART Frame', body:'The complete sequence sent for one byte: a start bit, the data bits, an optional parity bit, and one or more stop bits. Everything outside a frame is idle (HIGH).', more:''},
+  gnd: {tag:'Reference', title:'GND ↔ GND', body:'Both devices must share a common ground so that "0 volts" means the same thing on each side — otherwise HIGH/LOW thresholds become meaningless.', more:''}
+};
+
+/* ---------- state ---------- */
+const state = {
+  cfg: { char:'A', byte:0x41, baud:9600, dataBits:8, parity:'none', stopBits:1, errorMode:'none' },
+  timeline: null,          // {segs, total, bits, parity, txParity, byte, rx}
+  currentTime: 0,          // ms into timeline
+  playing: false,
+  speed: 1,
+  faultBlocked: false,     // miswire / disconnect short-circuit normal timeline
+  lastFrame: 0,
+  view: 'concept',
+  engineerDetail: false
+};
+
+/* ---------- byte <-> char/hex/bin sync ---------- */
+function maskByte(b){ const bits = state.cfg.dataBits; return b & ((1<<bits)-1); }
+
+function setByteFromChar(ch){
+  if(!ch) ch='A';
+  let code = ch.charCodeAt(0) & 0xFF;
+  state.cfg.char = ch;
+  state.cfg.byte = maskByte(code);
+  syncByteInputs('char');
+  rebuild();
+}
+function setByteFromHex(hex){
+  let v = parseInt(hex,16);
+  if(isNaN(v)) v = 0;
+  state.cfg.byte = maskByte(v);
+  state.cfg.char = (state.cfg.byte>=32 && state.cfg.byte<127) ? String.fromCharCode(state.cfg.byte) : '·';
+  syncByteInputs('hex');
+  rebuild();
+}
+function setByteFromBin(bin){
+  let v = parseInt(bin,2);
+  if(isNaN(v)) v = 0;
+  state.cfg.byte = maskByte(v);
+  state.cfg.char = (state.cfg.byte>=32 && state.cfg.byte<127) ? String.fromCharCode(state.cfg.byte) : '·';
+  syncByteInputs('bin');
+  rebuild();
+}
+function syncByteInputs(exclude){
+  const b = state.cfg.byte;
+  if(exclude!=='char') $('#inChar').value = (b>=32 && b<127)?String.fromCharCode(b):'·';
+  if(exclude!=='hex') $('#inHex').value = b.toString(16).toUpperCase().padStart(2,'0');
+  if(exclude!=='bin') $('#inBin').value = b.toString(2).padStart(state.cfg.dataBits,'0');
+}
+
+/* ---------- timeline construction ---------- */
+function computeUnitMs(){
+  const baudFactor = state.cfg.baud/9600;
+  let base = 500/baudFactor;
+  base = Math.max(130, Math.min(1400, base));
+  return base/state.speed;
+}
+
+function buildFrameTimeline(){
+  const cfg = state.cfg;
+  const unit = computeUnitMs();
+  const bits = [];
+  for(let i=0;i<cfg.dataBits;i++) bits.push((cfg.byte>>i)&1);
+  let parity = null;
+  if(cfg.parity!=='none'){
+    const ones = bits.reduce((a,b)=>a+b,0);
+    parity = cfg.parity==='even' ? (ones%2) : (1-(ones%2));
+  }
+  let txParity = parity;
+  if(cfg.errorMode==='parity' && parity!==null) txParity = 1-parity;
+
+  const segs = [];
+  const preIdle = unit*1.3;
+  segs.push({field:'IDLE', kind:'idle', value:1, dur:preIdle});
+  segs.push({field:'START', kind:'start', value:0, dur:unit});
+  bits.forEach((b,i)=>segs.push({field:'D'+i, kind:'data', value:b, dur:unit, bitIndex:i}));
+  if(txParity!==null) segs.push({field:'PARITY', kind:'parity', value:txParity, dur:unit});
+  for(let s=0;s<cfg.stopBits;s++){
+    let v = 1;
+    if(cfg.errorMode==='stop' && s===cfg.stopBits-1) v = 0;
+    segs.push({field: cfg.stopBits>1 ? ('STOP'+(s+1)) : 'STOP', kind:'stop', value:v, dur:unit});
+  }
+  const postIdle = unit*1.3;
+  segs.push({field:'IDLE', kind:'idle', value:1, dur:postIdle});
+
+  // cumulative start times
+  let t=0;
+  segs.forEach(s=>{ s.t0=t; t+=s.dur; s.t1=t; });
+  const total = t;
+
+  // pre/post phase markers relative to overall journey (for narration + journey strip)
+  const frameStart = segs[1].t0; // start bit begins
+  const frameEnd = segs[segs.length-2].t1; // end of last stop bit
+
+  // ----- RX interpretation -----
+  let rxBits, rxParityBit, rxByte, rxOk, rxNote, sampleTimes=[];
+  const dataSegs = segs.filter(s=>s.kind==='data');
+  const paritySeg = segs.find(s=>s.kind==='parity');
+  const stopSegs = segs.filter(s=>s.kind==='stop');
+
+  function valueAt(time){
+    for(const s of segs){ if(time>=s.t0 && time<s.t1) return s.value; }
+    return 1;
+  }
+
+  if(cfg.errorMode==='baud'){
+    // receiver assumes a mismatched baud -> mismatched unit duration
+    const rxUnit = unit*1.42;
+    let cursor = frameStart; // receiver locks onto the falling edge (start of START bit) same instant
+    // slot 0 = start bit itself (receiver just needs edge), then data bits, parity, stop use rxUnit spacing
+    let slotIndex = 0;
+    rxBits = [];
+    dataSegs.forEach((s,i)=>{
+      const sampleT = frameStart + rxUnit*(i+1.5); // 1 start-bit-worth + i+0.5 into data
+      sampleTimes.push({t:sampleT, kind:'data', idx:i});
+      rxBits.push(valueAt(sampleT));
+    });
+    if(paritySeg){
+      const sampleT = frameStart + rxUnit*(dataSegs.length+1.5);
+      sampleTimes.push({t:sampleT, kind:'parity'});
+      rxParityBit = valueAt(sampleT);
+    } else rxParityBit=null;
+    const stopSampleT = frameStart + rxUnit*(dataSegs.length + (paritySeg?2:1) + 0.5);
+    sampleTimes.push({t:stopSampleT, kind:'stop'});
+    const stopVal = valueAt(stopSampleT);
+    rxByte = rxBits.reduce((acc,b,i)=>acc | (b<<i), 0);
+    rxOk = false;
+    rxNote = stopVal!==1
+      ? 'Framing error — the receiver expected a STOP bit (HIGH) but sampled the line mid-bit, landing on the wrong value.'
+      : 'Bits were sampled at drifting instants; the reconstructed byte does not match what was sent.';
+  } else if(cfg.errorMode==='parity'){
+    rxBits = bits.slice();
+    sampleTimes = dataSegs.map((s,i)=>({t:s.t0+unit*0.5, kind:'data', idx:i}));
+    rxParityBit = txParity; // receiver samples exactly what was (wrongly) sent
+    if(paritySeg) sampleTimes.push({t:paritySeg.t0+unit*0.5, kind:'parity'});
+    stopSegs.forEach(s=>sampleTimes.push({t:s.t0+unit*0.5, kind:'stop'}));
+    rxByte = cfg.byte;
+    const expectedParity = parity;
+    rxOk = (rxParityBit===expectedParity);
+    rxNote = 'Receiver independently computes the parity it expects ('+expectedParity+') from the data bits, but the line carried '+rxParityBit+'. Byte is discarded as PARITY ERROR even though the data bits themselves arrived correctly.';
+  } else if(cfg.errorMode==='stop'){
+    rxBits = bits.slice();
+    sampleTimes = dataSegs.map((s,i)=>({t:s.t0+unit*0.5, kind:'data', idx:i}));
+    if(paritySeg) sampleTimes.push({t:paritySeg.t0+unit*0.5, kind:'parity'});
+    stopSegs.forEach(s=>sampleTimes.push({t:s.t0+unit*0.5, kind:'stop'}));
+    rxParityBit = txParity;
+    rxByte = cfg.byte;
+    rxOk = false;
+    rxNote = 'The final STOP bit was sampled LOW instead of HIGH. The receiver cannot confirm the frame ended cleanly — a FRAMING ERROR is raised and the byte is flagged unreliable.';
+  } else {
+    rxBits = bits.slice();
+    sampleTimes = dataSegs.map((s,i)=>({t:s.t0+unit*0.5, kind:'data', idx:i}));
+    if(paritySeg) sampleTimes.push({t:paritySeg.t0+unit*0.5, kind:'parity'});
+    stopSegs.forEach(s=>sampleTimes.push({t:s.t0+unit*0.5, kind:'stop'}));
+    rxParityBit = txParity;
+    rxByte = cfg.byte;
+    rxOk = true;
+    rxNote = '';
+  }
+
+  return {
+    segs, total, unit, bits, parity, txParity, byte:cfg.byte,
+    frameStart, frameEnd,
+    rx:{ bits:rxBits, parityBit:rxParityBit, byte:rxByte, ok:rxOk, note:rxNote, sampleTimes }
+  };
+}
+
+/* ---------- rebuild on config change ---------- */
+function rebuild(){
+  state.cfg.errorMode = document.querySelector('input[name=err]:checked').value;
+  state.faultBlocked = (state.cfg.errorMode==='miswire' || state.cfg.errorMode==='disconnect');
+  state.timeline = state.faultBlocked ? null : buildFrameTimeline();
+  state.currentTime = 0;
+  state.playing = false;
+  updatePlayIcon();
+  renderStaticParts();
+  renderErrorBanner();
+  render(true);
+}
+
+/* ============================= SVG HERO BUILD ============================= */
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag,attrs,children){
+  const e = document.createElementNS(NS,tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  (children||[]).forEach(c=>e.appendChild(c));
+  return e;
+}
+function txt(x,y,s,attrs){
+  const t = el('text', Object.assign({x,y}, attrs||{}));
+  t.textContent = s;
+  return t;
+}
+
+function buildHeroSvg(){
+  const svg = $('#heroSvg');
+  svg.innerHTML='';
+
+  // ---- defs ----
+  const defs = el('defs',{});
+  const glow = el('filter',{id:'softGlow', x:'-50%', y:'-50%', width:'200%', height:'200%'},[
+    el('feGaussianBlur',{stdDeviation:'4', result:'blur'})
+  ]);
+  defs.appendChild(glow);
+  svg.appendChild(defs);
+
+  // background rails
+  svg.appendChild(el('rect',{x:0,y:0,width:1200,height:460,fill:'none'}));
+
+  // ============ DEVICE A ============
+  const devA = el('g',{id:'devA'});
+  devA.appendChild(el('rect',{x:30,y:70,width:330,height:280,rx:16,fill:'#fff','stroke':'var(--line-strong)','stroke-width':1.4}));
+  devA.appendChild(txt(45,95,'DEVICE A',{'font-size':11,'font-weight':700,'letter-spacing':'1.5px',fill:'var(--muted)'}));
+  devA.appendChild(txt(345,95,'MCU',{'font-size':10,fill:'var(--faint)','text-anchor':'end'}));
+
+  // CPU block
+  const cpuA = el('g',{class:'clickable','data-explain':'cpuA'});
+  cpuA.appendChild(el('rect',{x:55,y:112,width:280,height:52,rx:10,fill:'var(--navy)'}));
+  cpuA.appendChild(cpuIcon(75,138));
+  cpuA.appendChild(txt(102,133,'CPU',{'font-size':13,'font-weight':700,fill:'#fff'}));
+  cpuA.appendChild(txt(102,150,'holds byte to send',{'font-size':9.5,fill:'#B9C6E4'}));
+  cpuA.appendChild(txt(325,140,'',{id:'cpuAByte','font-size':16,'font-weight':700,fill:'#8FB4FF','text-anchor':'end'}));
+  devA.appendChild(cpuA);
+
+  // arrow CPU -> UART
+  devA.appendChild(arrowV(195,164,186));
+
+  // UART block A
+  const uartA = el('g',{class:'clickable','data-explain':'uartA'});
+  uartA.appendChild(el('rect',{x:55,y:186,width:280,height:130,rx:10,fill:'var(--panel-2)','stroke':'var(--line-strong)'}));
+  uartA.appendChild(txt(72,206,'UART (TX)',{'font-size':11,'font-weight':700,fill:'var(--navy)'}));
+  uartA.appendChild(clockIcon(310,200));
+
+  // tx data reg
+  const txReg = el('g',{class:'clickable','data-explain':'txReg'});
+  txReg.appendChild(el('rect',{x:70,y:216,width:250,height:24,rx:6,fill:'#fff','stroke':'var(--line)'}));
+  txReg.appendChild(txt(78,232,'TX DATA REG',{'font-size':9,fill:'var(--faint)','font-weight':600}));
+  txReg.appendChild(txt(315,232,'',{id:'txDataRegVal','font-size':11,'font-weight':700,fill:'var(--ink)','text-anchor':'end'}));
+  uartA.appendChild(txReg);
+
+  // tx shift reg (bit boxes)
+  const shiftG = el('g',{class:'clickable','data-explain':'txShift'});
+  shiftG.appendChild(txt(78,258,'TX SHIFT REG',{'font-size':9,fill:'var(--faint)','font-weight':600}));
+  const shiftBits = el('g',{id:'txShiftBits'});
+  shiftG.appendChild(shiftBits);
+  uartA.appendChild(shiftG);
+
+  uartA.appendChild(txt(78,302,'BAUD',{'font-size':9,fill:'var(--faint)','font-weight':600}));
+  uartA.appendChild(txt(140,302,'',{id:'baudLabelA','font-size':10,'font-weight':700,fill:'var(--timing)'}));
+  devA.appendChild(uartA);
+
+  devA.appendChild(arrowV(195,316,336));
+
+  // TX pin
+  const txPin = el('g',{class:'clickable','data-explain':'txPin'});
+  txPin.appendChild(el('rect',{x:120,y:336,width:150,height:30,rx:8,id:'txPinRect',fill:'var(--sig-high)'}));
+  txPin.appendChild(txt(195,356,'TX',{'font-size':13,'font-weight':700,fill:'#fff','text-anchor':'middle'}));
+  devA.appendChild(txPin);
+
+  // GND pin A
+  const gndA = el('g',{class:'clickable','data-explain':'gnd'});
+  gndA.appendChild(el('rect',{x:120,y:376,width:150,height:20,rx:6,fill:'#EDEFF3','stroke':'var(--line-strong)'}));
+  gndA.appendChild(txt(195,390,'GND',{'font-size':10,'font-weight':700,fill:'var(--muted)','text-anchor':'middle'}));
+  devA.appendChild(gndA);
+
+  svg.appendChild(devA);
+
+  // ============ WIRE ZONE ============
+  const wireG = el('g',{id:'wireGroup'});
+  wireG.appendChild(txt(600,60,'TX → RX',{'font-size':11,'font-weight':700,fill:'var(--muted)','text-anchor':'middle'}));
+  const wirePath = el('path',{id:'wirePath', class:'clickable','data-explain':'wire', d:'M360,351 L840,351', stroke:'var(--sig-high)','stroke-width':4,fill:'none','stroke-linecap':'round','stroke-linejoin':'round'});
+  wireG.appendChild(wirePath);
+  const wireHit = el('path',{id:'wireHit', d:'M360,330 L840,330 L840,372 L360,372 Z', fill:'transparent', class:'clickable','data-explain':'wire'});
+  wireG.appendChild(wireHit);
+  const wireDot = el('circle',{id:'wireDot', r:6, cy:351, cx:360, fill:'var(--timing)', filter:'url(#softGlow)'});
+  wireG.appendChild(wireDot);
+  const gndWire = el('path',{d:'M360,386 L840,386', stroke:'var(--line-strong)','stroke-width':2, 'stroke-dasharray':'2 4'});
+  wireG.appendChild(gndWire);
+  wireG.appendChild(txt(600,404,'GND ↔ GND',{'font-size':9.5,fill:'var(--faint)','text-anchor':'middle'}));
+
+  // current bit badge on wire
+  const bitBadge = el('g',{id:'bitBadge'});
+  bitBadge.appendChild(el('rect',{x:560,y:300,width:80,height:34,rx:8,fill:'var(--navy)',id:'bitBadgeRect'}));
+  bitBadge.appendChild(txt(600,321,'',{id:'bitBadgeText','font-size':13,'font-weight':700,fill:'#fff','text-anchor':'middle'}));
+  wireG.appendChild(bitBadge);
+
+  svg.appendChild(wireG);
+
+  // ============ DEVICE B ============
+  const devB = el('g',{id:'devB'});
+  devB.appendChild(el('rect',{x:840,y:70,width:330,height:280,rx:16,fill:'#fff','stroke':'var(--line-strong)','stroke-width':1.4}));
+  devB.appendChild(txt(855,95,'DEVICE B',{'font-size':11,'font-weight':700,'letter-spacing':'1.5px',fill:'var(--muted)'}));
+  devB.appendChild(txt(1155,95,'PC / MCU',{'font-size':10,fill:'var(--faint)','text-anchor':'end'}));
+
+  const rxPin = el('g',{class:'clickable','data-explain':'rxPin'});
+  rxPin.appendChild(el('rect',{x:930,y:336,width:150,height:30,rx:8,id:'rxPinRect',fill:'var(--sig-high)'}));
+  rxPin.appendChild(txt(1005,356,'RX',{'font-size':13,'font-weight':700,fill:'#fff','text-anchor':'middle'}));
+  devB.appendChild(rxPin);
+
+  const gndB = el('g',{class:'clickable','data-explain':'gnd'});
+  gndB.appendChild(el('rect',{x:930,y:376,width:150,height:20,rx:6,fill:'#EDEFF3','stroke':'var(--line-strong)'}));
+  gndB.appendChild(txt(1005,390,'GND',{'font-size':10,'font-weight':700,fill:'var(--muted)','text-anchor':'middle'}));
+  devB.appendChild(gndB);
+
+  devB.appendChild(arrowV(1005,336,316));
+
+  const uartB = el('g',{class:'clickable','data-explain':'uartB'});
+  uartB.appendChild(el('rect',{x:865,y:186,width:280,height:130,rx:10,fill:'var(--panel-2)','stroke':'var(--line-strong)'}));
+  uartB.appendChild(txt(882,206,'UART (RX)',{'font-size':11,'font-weight':700,fill:'var(--navy)'}));
+  uartB.appendChild(clockIcon(1120,200));
+
+  const sampleRow = el('g',{class:'clickable','data-explain':'sample'});
+  sampleRow.appendChild(el('rect',{x:880,y:216,width:250,height:24,rx:6,fill:'#fff','stroke':'var(--line)'}));
+  sampleRow.appendChild(txt(888,232,'SAMPLE',{'font-size':9,fill:'var(--faint)','font-weight':600}));
+  sampleRow.appendChild(txt(1125,232,'',{id:'sampleVal','font-size':11,'font-weight':700,fill:'var(--ink)','text-anchor':'end'}));
+  uartB.appendChild(sampleRow);
+
+  const rxShiftG = el('g',{class:'clickable','data-explain':'rxShift'});
+  rxShiftG.appendChild(txt(888,258,'RX SHIFT REG',{'font-size':9,fill:'var(--faint)','font-weight':600}));
+  const rxShiftBits = el('g',{id:'rxShiftBits'});
+  rxShiftG.appendChild(rxShiftBits);
+  uartB.appendChild(rxShiftG);
+
+  uartB.appendChild(txt(888,302,'STATUS',{'font-size':9,fill:'var(--faint)','font-weight':600}));
+  uartB.appendChild(txt(950,302,'',{id:'rxStatusLabel','font-size':10,'font-weight':700,fill:'var(--good)'}));
+  devB.appendChild(uartB);
+
+  devB.appendChild(arrowV(1005,164,186));
+
+  const cpuB = el('g',{class:'clickable','data-explain':'cpuB'});
+  cpuB.appendChild(el('rect',{x:865,y:112,width:280,height:52,rx:10,fill:'var(--navy)'}));
+  cpuB.appendChild(cpuIcon(885,138));
+  cpuB.appendChild(txt(912,133,'CPU',{'font-size':13,'font-weight':700,fill:'#fff'}));
+  cpuB.appendChild(txt(912,150,'receives byte',{'font-size':9.5,fill:'#B9C6E4'}));
+  cpuB.appendChild(txt(1135,140,'',{id:'cpuBByte','font-size':16,'font-weight':700,fill:'#8FB4FF','text-anchor':'end'}));
+  devB.appendChild(cpuB);
+
+  svg.appendChild(devB);
+
+  // sampling marker (dot appears on wire when RX samples)
+  const sampleMarker = el('g',{id:'sampleMarker','class':'clickable','data-explain':'sample', style:'display:none'});
+  sampleMarker.appendChild(el('line',{x1:0,y1:-18,x2:0,y2:18,stroke:'var(--good)','stroke-width':2, id:'sampleMarkerLine'}));
+  sampleMarker.appendChild(el('circle',{r:5,fill:'var(--good)', id:'sampleMarkerDot'}));
+  sampleMarker.appendChild(txt(0,-24,'SAMPLE',{'font-size':8.5,'font-weight':700,fill:'var(--good)','text-anchor':'middle', id:'sampleMarkerLabel'}));
+  svg.appendChild(sampleMarker);
+
+  // fault overlay group (miswire / disconnect)
+  const faultG = el('g',{id:'faultOverlay', style:'display:none'});
+  svg.appendChild(faultG);
+
+  // click handling
+  svg.querySelectorAll('[data-explain]').forEach(node=>{
+    node.addEventListener('click', ()=> showInspector(node.getAttribute('data-explain')));
+  });
+}
+
+function cpuIcon(x,y){
+  const g = el('g',{transform:'translate('+x+','+y+')'});
+  g.appendChild(el('rect',{x:-9,y:-9,width:18,height:18,rx:3,fill:'none',stroke:'#8FB4FF','stroke-width':1.6}));
+  g.appendChild(el('rect',{x:-4,y:-4,width:8,height:8,rx:1,fill:'#8FB4FF'}));
+  [-6,-2,2,6].forEach(o=>{
+    g.appendChild(el('line',{x1:o,y1:-9,x2:o,y2:-13,stroke:'#8FB4FF','stroke-width':1.4}));
+    g.appendChild(el('line',{x1:o,y1:9,x2:o,y2:13,stroke:'#8FB4FF','stroke-width':1.4}));
+  });
+  return g;
+}
+function clockIcon(x,y){
+  const g = el('g',{transform:'translate('+x+','+y+')'});
+  g.appendChild(el('circle',{r:9,fill:'none',stroke:'var(--timing)','stroke-width':1.6}));
+  g.appendChild(el('line',{x1:0,y1:0,x2:0,y2:-6,stroke:'var(--timing)','stroke-width':1.6,'stroke-linecap':'round'}));
+  g.appendChild(el('line',{x1:0,y1:0,x2:4,y2:2,stroke:'var(--timing)','stroke-width':1.6,'stroke-linecap':'round'}));
+  return g;
+}
+function arrowV(x,y1,y2){
+  const g = el('g',{});
+  g.appendChild(el('line',{x1:x,y1:y1,x2:x,y2:y2-8, stroke:'var(--line-strong)','stroke-width':2}));
+  g.appendChild(el('path',{d:'M'+(x-5)+','+(y2-8)+' L'+(x+5)+','+(y2-8)+' L'+x+','+y2+' Z', fill:'var(--line-strong)'}));
+  return g;
+}
+
+/* build small register bit boxes (used inside SVG) */
+function buildBitBoxes(container, n, prefix){
+  container.innerHTML='';
+  const total = n;
+  const bw = 22, gap=3, startX = (250-(total*bw+(total-1)*gap))/2;
+  for(let i=total-1;i>=0;i--){ // show MSB..LSB left to right for readability
+    const idx = total-1-i;
+    const x = idx*(bw+gap);
+    const rect = el('rect',{x, y:0, width:bw, height:20, rx:4, fill:'#fff', stroke:'var(--line-strong)', id:prefix+'_box_'+i});
+    const label = txt(x+bw/2, 14, '', {'font-size':10,'font-weight':700,'text-anchor':'middle', fill:'var(--faint)', id:prefix+'_txt_'+i});
+    container.appendChild(rect); container.appendChild(label);
+  }
+  container.setAttribute('transform','translate(70,262)');
+}
+
+/* ============================= FRAME STRIP / JOURNEY ============================= */
+function renderStaticParts(){
+  buildBitBoxes($('#txShiftBits'), state.cfg.dataBits, 'txs');
+  buildBitBoxes($('#rxShiftBits'), state.cfg.dataBits, 'rxs');
+
+  // journey strip
+  const nodes = ['A','0x'+state.cfg.byte.toString(16).toUpperCase().padStart(2,'0'),'BINARY','UART FRAME','ELECTRICAL SIGNAL','TX','WIRE','RX','RECONSTRUCTED BYTE','B'];
+  const journey = $('#journeyStrip');
+  journey.innerHTML='';
+  nodes.forEach((n,i)=>{
+    const el2 = document.createElement('span');
+    el2.className='journey-node'; el2.dataset.idx=i; el2.textContent=n;
+    journey.appendChild(el2);
+    if(i<nodes.length-1){
+      const arr = document.createElement('span'); arr.className='journey-arrow'; arr.textContent='→';
+      journey.appendChild(arr);
+    }
+  });
+
+  // frame strip
+  const strip = $('#frameStrip'); strip.innerHTML='';
+  if(state.faultBlocked){ return; }
+  state.timeline.segs.forEach((s,i)=>{
+    if(s.field==='IDLE' && (i===0 || i===state.timeline.segs.length-1)){
+      const c = document.createElement('div'); c.className='frame-cell'; c.dataset.idx=i;
+      c.innerHTML = '<div class="fl">IDLE</div><div class="fv">1</div>';
+      strip.appendChild(c);
+      return;
+    }
+    const c = document.createElement('div');
+    c.className = 'frame-cell '+s.kind; c.dataset.idx=i;
+    c.innerHTML = '<div class="fl">'+s.field+'</div><div class="fv">'+s.value+'</div>';
+    strip.appendChild(c);
+  });
+
+  $('#scopeBaud').textContent = state.cfg.baud+' baud · '+state.cfg.dataBits+'N'.replace('N', state.cfg.parity==='none'?'N':(state.cfg.parity==='even'?'E':'O'))+state.cfg.stopBits;
+
+  renderInternalsChain();
+  renderBeginnerList();
+}
+
+function renderErrorBanner(){
+  const banner = $('#errorBanner');
+  const mode = state.cfg.errorMode;
+  const map = {
+    baud: ['Baud mismatch','The receiver is sampling at a different rate than the transmitter used. Sample points will drift further from the correct bit centre as the frame goes on — press Play to watch the byte arrive corrupted.'],
+    parity: ['Parity mismatch','The transmitter computes parity using the wrong scheme. The data bits arrive correctly, but the receiver\'s independent parity check will fail and reject the byte.'],
+    stop: ['Bad stop bit','The line fails to return HIGH for the final stop bit. The receiver cannot confirm the frame ended — a framing error is raised.'],
+    miswire: ['TX ↔ TX miswired','Both devices\' TX pins are connected together, and neither RX is connected to a TX. Both sides try to drive the line — no valid communication is possible.'],
+    disconnect: ['Wire disconnected','There is no physical connection between TX and RX. The receiver line floats and never sees a start bit — the transmission times out.']
+  };
+  if(map[mode]){
+    banner.classList.add('show');
+    $('#errBannerTitle').textContent = map[mode][0];
+    $('#errBannerText').textContent = map[mode][1];
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+/* ============================= INTERNALS CHAIN (accordion) ============================= */
+function renderInternalsChain(){
+  const eng = state.engineerDetail;
+  const txStages = [
+    {id:'cpu-load', label:'CPU writes byte', val:()=>hex(state.cfg.byte)},
+    {id:'uart-prep', label:'TX Data Register', val:()=>hex(state.cfg.byte)},
+    {id:'bit', label:'TX Shift Register', val:()=>shiftDisplay(true)},
+    eng && {id:'baud', label:'Baud / Timing generator', val:()=>state.cfg.baud+' bps'},
+    {id:'bit-line', label:'TX Logic → Pin', val:()=>currentLineLabel()},
+  ].filter(Boolean);
+  const rxStages = [
+    {id:'bit-line', label:'RX Pin (watching line)', val:()=>currentLineLabel()},
+    eng && {id:'sync', label:'Synchronisation (edge lock)', val:()=>state.timeline?'—':''},
+    {id:'sample', label:'Sampling', val:()=>sampleDisplay()},
+    {id:'bit', label:'RX Shift Register', val:()=>shiftDisplay(false)},
+    {id:'rx-reconstruct', label:'RX Data Register', val:()=>state.timeline && phaseReached('rx-reconstruct')?hex(state.timeline.rx.byte):'—'},
+    eng && {id:'fifo', label:'FIFO', val:()=>phaseReached('rx-reconstruct')?'1 byte queued':'empty'},
+    eng && {id:'interrupt', label:'Interrupt → CPU', val:()=>phaseReached('cpu-receive')?'fired':'—'},
+    {id:'cpu-receive', label:'CPU reads byte', val:()=>phaseReached('cpu-receive')?hex(state.timeline.rx.byte):'—'},
+  ].filter(Boolean);
+
+  $('#txChain').innerHTML = txStages.map(s=>row(s)).join('');
+  $('#rxChain').innerHTML = rxStages.map(s=>row(s)).join('');
+  function row(s){ return '<div class="stage-row" data-stage="'+s.id+'"><span class="label">'+s.label+'</span><span class="val">'+esc(s.val())+'</span></div>'; }
+}
+function hex(b){ return '0x'+b.toString(16).toUpperCase().padStart(2,'0'); }
+function esc(s){ return (s===undefined||s===null)?'':String(s); }
+function currentLineLabel(){
+  if(state.faultBlocked) return '—';
+  const v = currentLineValue();
+  return v===null ? 'IDLE (HIGH)' : (v? 'HIGH (1)':'LOW (0)');
+}
+function shiftDisplay(isTx){
+  if(!state.timeline) return '—';
+  const n = state.cfg.dataBits;
+  const cur = currentSegment();
+  let out = '';
+  for(let i=n-1;i>=0;i--){
+    const b = state.timeline.bits[i];
+    let mark = '·';
+    if(cur && cur.kind==='data'){
+      if(isTx){ mark = cur.bitIndex>i ? String(b) : (cur.bitIndex===i? String(b)+'̲' : '·'); }
+      else { mark = cur.bitIndex>=i ? String((cur.bitIndex===i)?state.timeline.rx.bits[i]:state.timeline.rx.bits[i]) : '·'; }
+    } else if(phaseReached('bit') && phaseFullyPassedData()){
+      mark = isTx? '·' : String(state.timeline.rx.bits[i]);
+    }
+    out += mark;
+  }
+  return out;
+}
+function phaseFullyPassedData(){
+  if(!state.timeline) return false;
+  const dataSegs = state.timeline.segs.filter(s=>s.kind==='data');
+  const last = dataSegs[dataSegs.length-1];
+  return state.currentTime >= last.t1;
+}
+function sampleDisplay(){
+  if(!state.timeline) return '—';
+  const cur = currentSegment();
+  if(cur && cur.kind==='data') return 'bit '+cur.bitIndex;
+  return '—';
+}
+function phaseReached(id){
+  if(!state.timeline) return false;
+  const tl = state.timeline;
+  if(id==='rx-reconstruct') return state.currentTime >= tl.frameEnd;
+  if(id==='cpu-receive') return state.currentTime >= tl.total - (tl.segs[tl.segs.length-1].dur*0.3);
+  return false;
+}
+
+/* ============================= BEGINNER LIST ============================= */
+const BEGINNER_STEPS = [
+  ['The CPU has a byte.','It sits in ordinary memory, waiting to be sent.'],
+  ['UART prepares the byte for serial transmission.','It adds a start bit, and optionally a parity bit and stop bit(s), around the raw data.'],
+  ['The byte is sent one bit at a time.','Not all at once — UART is serial, so bits queue up and go out in sequence.'],
+  ['The TX pin changes between HIGH and LOW.','Each bit is represented by a voltage level on a single wire.'],
+  ['The receiver watches the RX line.','It waits for the line to drop LOW — that is the start bit, and the signal to begin listening.'],
+  ['The receiver samples the signal.','At roughly the middle of each bit period, it reads the voltage once and records a 0 or 1.'],
+  ['The bits are assembled back into a byte.','Once all data bits (and optional parity/stop) are received, the original byte is reconstructed.']
+];
+function renderBeginnerList(){
+  const wrap = $('#beginnerList');
+  wrap.innerHTML = BEGINNER_STEPS.map((s,i)=>
+    '<div class="stage-row" data-beg="'+i+'" style="align-items:flex-start;">'+
+      '<span class="label" style="max-width:70%;"><b style="color:var(--ink);">'+ (i+1) +'. '+s[0]+'</b><br><span style="font-weight:400; color:var(--muted);">'+s[1]+'</span></span>'+
+    '</div>').join('');
+}
+
+/* ============================= REAL WORLD VIEW ============================= */
+const RW_STEPS = [
+  {k:'01', t:'MCU', d:'Runs firmware; owns the byte to send', explain:'The microcontroller\'s core, executing your application code.'},
+  {k:'02', t:'UART peripheral', d:'On-chip hardware block', explain:'A dedicated peripheral inside the MCU silicon — separate from the CPU core.'},
+  {k:'03', t:'UART / GPIO pins', d:'TX & RX at chip voltage (e.g. 3.3V)', explain:'The physical package pins. Voltage levels here are chip-logic levels, not RS-232 or USB levels.'},
+  {k:'04', t:'USB-UART bridge', d:'e.g. FTDI / CP210x / CH340', explain:'A small chip that translates UART electrical signalling into USB packets — this is NOT part of UART itself.'},
+  {k:'05', t:'USB', d:'Different protocol entirely', explain:'A completely different serial standard with its own framing, voltages and connectors.'},
+  {k:'06', t:'PC', d:'Runs the operating system', explain:'Receives USB packets and exposes them as a virtual serial port.'},
+  {k:'07', t:'Serial driver', d:'e.g. /dev/ttyUSB0, COM3', explain:'OS-level driver that presents the bridge as a byte stream to applications.'},
+  {k:'08', t:'Terminal', d:'Displays the received byte', explain:'A terminal emulator (PuTTY, minicom, screen) showing the decoded character.'}
+];
+function buildRealWorld(){
+  const c = $('#rwChain'); c.innerHTML='';
+  RW_STEPS.forEach(s=>{
+    const d = document.createElement('div'); d.className='rw-step';
+    d.innerHTML = '<div class="k">'+s.k+'</div><div class="t">'+s.t+'</div><div class="d">'+s.d+'</div>';
+    d.addEventListener('click', ()=> showInspectorCustom(s.t.toUpperCase(), 'Real-world stage', s.explain));
+    c.appendChild(d);
+  });
+}
+
+/* ============================= INSPECTOR ============================= */
+function showInspector(key){
+  const e = EXPLAIN[key];
+  if(!e) return;
+  showInspectorCustom(e.title, e.tag, e.body, e.more);
+}
+function showInspectorCustom(title, tag, body, more){
+  $('#inspectorBody').innerHTML =
+    '<span class="inspector-tag">'+tag+'</span>'+
+    '<h3 class="inspector-title">'+title+'</h3>'+
+    '<p>'+body+'</p>'+
+    (more? '<p class="more">'+more+'</p>' : '');
+}
+
+/* ============================= SIMULATION LOOP ============================= */
+function currentSegment(){
+  if(!state.timeline) return null;
+  for(const s of state.timeline.segs){ if(state.currentTime>=s.t0 && state.currentTime<s.t1) return s; }
+  return state.timeline.segs[state.timeline.segs.length-1];
+}
+function currentLineValue(){
+  const s = currentSegment();
+  return s ? s.value : null;
+}
+
+function updatePlayIcon(){
+  $('#iconPlay').innerHTML = state.playing
+    ? '<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/>'
+    : '<path d="M7 5v14l11-7L7 5Z" fill="currentColor"/>';
+}
+
+function narrate(){
+  const badge = $('#narrBadge'); const txtEl = $('#narrText');
+  if(state.faultBlocked){
+    badge.textContent = 'FAULT';
+    txtEl.innerHTML = state.cfg.errorMode==='miswire'
+      ? 'Both TX pins are wired together — <b>no valid link exists.</b>'
+      : 'The wire is disconnected — <b>RX never sees a signal.</b>';
+    return;
+  }
+  const s = currentSegment();
+  if(!s){ badge.textContent='IDLE'; txtEl.innerHTML='Press <b>Transmit</b> to send a byte.'; return; }
+  let phaseText='', badgeText='';
+  if(s.kind==='idle'){
+    badgeText = state.currentTime < state.timeline.frameStart ? 'READY' : 'DONE';
+    phaseText = state.currentTime < state.timeline.frameStart
+      ? 'The line idles <b>HIGH</b>. Device A is about to send <b>'+esc(state.cfg.char)+'</b> ('+hex(state.cfg.byte)+').'
+      : 'Transmission complete. Device B\'s CPU now holds <b>'+hex(state.timeline.rx.byte)+'</b>'+(state.timeline.rx.ok?' — matches what was sent.':' — <span style="color:#FFB4B4">does not match what was sent.</span>');
+  } else if(s.kind==='start'){
+    badgeText='START'; phaseText='The line drops <b>LOW</b> — this is the start bit, telling Device B a byte is coming.';
+  } else if(s.kind==='data'){
+    badgeText='D'+s.bitIndex; phaseText='Sending data bit <b>D'+s.bitIndex+'</b> = <b>'+s.value+'</b>. The line goes '+(s.value?'HIGH':'LOW')+'.';
+  } else if(s.kind==='parity'){
+    badgeText='PARITY'; phaseText='Sending the <b>parity bit</b> = '+s.value+', used by Device B to catch single-bit errors.';
+  } else if(s.kind==='stop'){
+    badgeText='STOP'; phaseText='Sending the <b>stop bit</b> — the line returns to HIGH, marking the end of the frame.';
+  }
+  badge.textContent = badgeText;
+  txtEl.innerHTML = phaseText;
+}
+
+function render(force){
+  // frame strip highlight
+  if(!state.faultBlocked && state.timeline){
+    const cur = currentSegment();
+    document.querySelectorAll('.frame-cell').forEach(c=>{
+      const idx = +c.dataset.idx;
+      const seg = state.timeline.segs[idx];
+      c.classList.toggle('active', seg===cur);
+      if(!state.timeline.rx.ok && seg && seg.kind==='stop' && state.currentTime>=state.timeline.total-state.timeline.segs[state.timeline.segs.length-1].dur){
+        // no-op, handled below for final error highlight
+      }
+    });
+    if(!state.timeline.rx.ok && state.currentTime>=state.timeline.total-1){
+      document.querySelectorAll('.frame-cell').forEach(c=>{
+        const seg = state.timeline.segs[+c.dataset.idx];
+        if(seg && (seg.kind==='parity'||seg.kind==='stop')) c.classList.add('err');
+      });
+    }
+
+    // journey nodes
+    const jIdx = journeyIndexFor(cur);
+    document.querySelectorAll('.journey-node').forEach(n=>{
+      const i = +n.dataset.idx;
+      n.classList.toggle('active', i===jIdx);
+      n.classList.toggle('passed', i<jIdx);
+    });
+
+    // wire + pins
+    const lineVal = currentLineValue();
+    const high = lineVal===1;
+    $('#txPinRect').setAttribute('fill', high?'var(--sig-high)':'var(--sig-low)');
+    $('#rxPinRect').setAttribute('fill', high?'var(--sig-high)':'var(--sig-low)');
+    $('#wirePath').setAttribute('stroke', high?'var(--sig-high)':'var(--sig-low)');
+    $('#wirePath').setAttribute('d', wirePathFor(state.currentTime));
+    const wireProg = Math.min(1, Math.max(0, state.currentTime/state.timeline.total));
+    $('#wireDot').setAttribute('cx', 360+480*wireProg);
+    $('#wireDot').setAttribute('cy', high?325:377);
+
+    // bit badge
+    if(cur && (cur.kind==='data'||cur.kind==='start'||cur.kind==='parity'||cur.kind==='stop')){
+      $('#bitBadge').style.display='';
+      $('#bitBadgeText').textContent = cur.field+' = '+cur.value;
+      $('#bitBadgeRect').setAttribute('fill', cur.kind==='data'?'var(--data)':cur.kind==='start'?'var(--timing)':cur.kind==='parity'?'#B08900':'var(--good)');
+    } else { $('#bitBadge').style.display='none'; }
+
+    // sample marker
+    const sm = $('#sampleMarker');
+    const activeSample = state.timeline.rx.sampleTimes.find(st=>Math.abs(st.t-state.currentTime)<computeUnitMs()*0.12 && state.currentTime>=st.t);
+    const recentSample = [...state.timeline.rx.sampleTimes].reverse().find(st=>st.t<=state.currentTime && state.currentTime-st.t<computeUnitMs()*0.9);
+    if(recentSample){
+      const prog = Math.min(1, Math.max(0, recentSample.t/state.timeline.total));
+      sm.style.display='';
+      sm.setAttribute('transform','translate('+(360+480*prog)+',351)');
+      const bad = (state.cfg.errorMode==='baud');
+      $('#sampleMarkerDot').setAttribute('fill', bad?'var(--bad)':'var(--good)');
+      $('#sampleMarkerLine').setAttribute('stroke', bad?'var(--bad)':'var(--good)');
+      $('#sampleMarkerLabel').setAttribute('fill', bad?'var(--bad)':'var(--good)');
+    } else sm.style.display='none';
+
+    // registers
+    $('#cpuAByte').textContent = state.currentTime < state.timeline.frameStart+computeUnitMs() ? '' : '';
+    $('#txDataRegVal').textContent = hex(state.cfg.byte);
+    $('#sampleVal').textContent = cur && cur.kind==='data' ? String(cur.value) : '';
+    $('#rxStatusLabel').textContent = phaseReached('rx-reconstruct') ? (state.timeline.rx.ok?'FRAME OK':'ERROR') : 'listening';
+    $('#rxStatusLabel').setAttribute('fill', phaseReached('rx-reconstruct') ? (state.timeline.rx.ok?'var(--good)':'var(--bad)') : 'var(--muted)');
+    $('#cpuBByte').textContent = phaseReached('cpu-receive') ? hex(state.timeline.rx.byte) : '';
+    $('#baudLabelA').textContent = state.cfg.baud+' bps';
+
+    updateShiftBoxes(cur);
+
+    // scrubber
+    $('#scrubber').max = Math.round(state.timeline.total);
+    $('#scrubber').value = Math.round(state.currentTime);
+    $('#scrubTime').textContent = Math.round(state.currentTime)+' / '+Math.round(state.timeline.total)+' ms';
+
+    // status text
+    $('#statusText').textContent = state.currentTime<state.timeline.frameStart ? 'IDLE — line held HIGH'
+      : state.currentTime>=state.timeline.frameEnd ? (state.timeline.rx.ok?'TRANSFER COMPLETE — OK':'TRANSFER COMPLETE — ERROR')
+      : 'TRANSMITTING · '+cur.field;
+
+    drawScope();
+    renderInternalsChain();
+  } else if(state.faultBlocked){
+    renderFaultOverlay();
+    $('#statusText').textContent='FAULT — no valid transmission';
+  }
+  narrate();
+}
+
+function journeyIndexFor(cur){
+  if(!cur) return 0;
+  if(cur.kind==='idle') return state.currentTime < state.timeline.frameStart ? 0 : 9;
+  if(cur.kind==='start') return 3;
+  if(cur.kind==='data') return 3;
+  if(cur.kind==='parity') return 4;
+  if(cur.kind==='stop') return 4;
+  return 3;
+}
+
+function wirePathFor(time){
+  // draw the wire itself as the waveform up to current time, flat afterward
+  const total = state.timeline.total;
+  const x0=360, x1=840, yHigh=325, yLow=377;
+  const segs = state.timeline.segs;
+  let d = '';
+  let lastY = null;
+  segs.forEach(s=>{
+    if(s.t0 > time) return;
+    const segEndClamped = Math.min(s.t1, time);
+    const xA = x0 + (x1-x0)*(s.t0/total);
+    const xB = x0 + (x1-x0)*(segEndClamped/total);
+    const y = s.value? yHigh : yLow;
+    if(d===''){ d += 'M'+xA.toFixed(1)+','+y+' '; }
+    else if(lastY!==null && lastY!==y){ d += 'L'+xA.toFixed(1)+','+lastY+' L'+xA.toFixed(1)+','+y+' '; }
+    d += 'L'+xB.toFixed(1)+','+y+' ';
+    lastY = y;
+  });
+  if(d==='') d = 'M'+x0+','+yHigh+' L'+x0+','+yHigh;
+  return d;
+}
+
+function updateShiftBoxes(cur){
+  const n = state.cfg.dataBits;
+  for(let i=0;i<n;i++){
+    const bTx = document.getElementById('txs_box_'+i), tTx = document.getElementById('txs_txt_'+i);
+    const bRx = document.getElementById('rxs_box_'+i), tRx = document.getElementById('rxs_txt_'+i);
+    if(!bTx) continue;
+    const val = state.timeline.bits[i];
+    tTx.textContent = val;
+    bTx.setAttribute('fill', '#fff'); bTx.setAttribute('stroke','var(--line-strong)'); tTx.setAttribute('fill','var(--faint)');
+    if(cur && cur.kind==='data'){
+      if(i<cur.bitIndex){ bTx.setAttribute('fill','var(--panel-2)'); bTx.setAttribute('opacity','0.4'); tTx.setAttribute('fill','var(--faint)'); }
+      else { bTx.setAttribute('opacity','1'); }
+      if(i===cur.bitIndex){ bTx.setAttribute('fill','var(--data)'); tTx.setAttribute('fill','#fff'); }
+      else if(i>cur.bitIndex){ bTx.setAttribute('fill','var(--data-soft)'); bTx.setAttribute('stroke','var(--data)'); tTx.setAttribute('fill','var(--ink)'); }
+    } else if(phaseFullyPassedData()){
+      bTx.setAttribute('opacity','0.35');
+    } else { bTx.setAttribute('opacity','1'); }
+
+    // rx side
+    const rxVal = state.timeline.rx.bits[i];
+    tRx.textContent='';
+    bRx.setAttribute('fill','#fff'); bRx.setAttribute('stroke','var(--line-strong)');
+    const sampled = state.timeline.rx.sampleTimes.find(st=>st.kind==='data'&&st.idx===i && st.t<=state.currentTime);
+    if(sampled){
+      tRx.textContent = rxVal;
+      bRx.setAttribute('fill', state.timeline.rx.ok? 'var(--good-soft)':'var(--bad-soft)');
+      bRx.setAttribute('stroke', state.timeline.rx.ok?'var(--good)':'var(--bad)');
+      tRx.setAttribute('fill','var(--ink)');
+      if(cur && cur.kind==='data' && cur.bitIndex===i){ bRx.setAttribute('fill', state.timeline.rx.ok?'var(--good)':'var(--bad)'); tRx.setAttribute('fill','#fff'); }
+    }
+  }
+}
+
+/* ============================= FAULT OVERLAYS ============================= */
+function renderFaultOverlay(){
+  const g = $('#faultOverlay');
+  g.style.display='';
+  g.innerHTML='';
+  const wire = $('#wireGroup'); wire.style.opacity = state.cfg.errorMode==='disconnect' ? '0.25':'1';
+  $('#wirePath').setAttribute('d','M360,351 L840,351');
+  if(state.cfg.errorMode==='miswire'){
+    $('#txPinRect').setAttribute('fill','var(--bad)');
+    $('#rxPinRect').setAttribute('fill','#C9CFDA');
+    const badWire = el('path',{d:'M360,351 C 560,220 640,220 840,351', stroke:'var(--bad)','stroke-width':4,fill:'none','stroke-dasharray':'6 5'});
+    g.appendChild(badWire);
+    g.appendChild(txt(600,205,'TX ⚡ TX — CONTENTION',{'font-size':12,'font-weight':700,fill:'var(--bad)','text-anchor':'middle'}));
+  } else if(state.cfg.errorMode==='disconnect'){
+    $('#txPinRect').setAttribute('fill','var(--sig-low)');
+    $('#rxPinRect').setAttribute('fill','#C9CFDA');
+    g.appendChild(el('path',{d:'M360,351 L560,351', stroke:'var(--muted)','stroke-width':4,'stroke-dasharray':'5 6','stroke-linecap':'round'}));
+    g.appendChild(el('path',{d:'M640,351 L840,351', stroke:'var(--muted)','stroke-width':4,'stroke-dasharray':'5 6','stroke-linecap':'round'}));
+    g.appendChild(el('circle',{cx:560,cy:351,r:5,fill:'var(--bad)'}));
+    g.appendChild(el('circle',{cx:640,cy:351,r:5,fill:'var(--bad)'}));
+    g.appendChild(txt(600,320,'NO CONNECTION',{'font-size':12,'font-weight':700,fill:'var(--bad)','text-anchor':'middle'}));
+  }
+}
+
+/* ============================= OSCILLOSCOPE ============================= */
+function drawScope(){
+  const canvas = $('#scope');
+  const dpr = window.devicePixelRatio||1;
+  const cw = canvas.clientWidth, ch = canvas.clientHeight;
+  if(canvas.width !== cw*dpr || canvas.height !== ch*dpr){ canvas.width=cw*dpr; canvas.height=ch*dpr; }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cw,ch);
+  if(!state.timeline) return;
+
+  const padL=8, padR=8, padT=20, padB=26;
+  const plotW = cw-padL-padR, plotH = ch-padT-padB;
+  const yHigh = padT+8, yLow = padT+plotH-8;
+  const total = state.timeline.total;
+  const xFor = t => padL + plotW*(t/total);
+
+  // grid: bit boundaries
+  ctx.strokeStyle = '#E7EAF0'; ctx.lineWidth=1;
+  state.timeline.segs.forEach(s=>{
+    ctx.beginPath(); ctx.moveTo(xFor(s.t0)+0.5, padT); ctx.lineTo(xFor(s.t0)+0.5, padT+plotH); ctx.stroke();
+  });
+
+  // baseline labels for bits
+  ctx.font = '10px "IBM Plex Mono", monospace'; ctx.fillStyle = '#8A93A6'; ctx.textAlign='center';
+  state.timeline.segs.forEach(s=>{
+    if(s.field==='IDLE') return;
+    const midx = xFor((s.t0+s.t1)/2);
+    ctx.fillText(s.field, midx, ch-9);
+  });
+
+  // waveform up to full frame (draw entire known frame, dim after current time)
+  function drawWave(upToAll){
+    ctx.beginPath();
+    let started=false; let lastY=null;
+    state.timeline.segs.forEach(s=>{
+      const y = s.value? yHigh: yLow;
+      const xa = xFor(s.t0), xb = xFor(s.t1);
+      if(!started){ ctx.moveTo(xa,y); started=true; }
+      else if(lastY!==null && lastY!==y){ ctx.lineTo(xa,lastY); ctx.lineTo(xa,y); }
+      ctx.lineTo(xb,y);
+      lastY = y;
+    });
+    ctx.stroke();
+  }
+  ctx.lineWidth=2.2; ctx.strokeStyle='#C9CFDA';
+  drawWave(true);
+
+  // progressed portion, colored
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(padL, 0, Math.max(0,xFor(state.currentTime)-padL), ch);
+  ctx.clip();
+  ctx.lineWidth=2.6; ctx.strokeStyle = getCss('--sig-high');
+  drawWave(false);
+  ctx.restore();
+
+  // sample markers already passed
+  state.timeline.rx.sampleTimes.forEach(st=>{
+    if(st.t>state.currentTime) return;
+    const bad = state.cfg.errorMode==='baud';
+    ctx.fillStyle = bad? getCss('--bad') : getCss('--good');
+    ctx.beginPath(); ctx.arc(xFor(st.t), st.kind==='data'||st.kind==='parity'? (valueNear(st.t)? yHigh:yLow) : (valueNear(st.t)? yHigh:yLow), 3.4, 0, 7); ctx.fill();
+  });
+
+  // cursor
+  ctx.strokeStyle = getCss('--timing'); ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(xFor(state.currentTime), padT-4); ctx.lineTo(xFor(state.currentTime), padT+plotH+4); ctx.stroke();
+
+  // HIGH/LOW labels
+  ctx.textAlign='left'; ctx.fillStyle='#8A93A6'; ctx.font='9.5px "IBM Plex Mono", monospace';
+  ctx.fillText('HIGH', padL, yHigh-6);
+  ctx.fillText('LOW', padL, yLow+14);
+
+  function valueNear(t){
+    for(const s of state.timeline.segs){ if(t>=s.t0 && t<=s.t1+0.01) return s.value; }
+    return 1;
+  }
+}
+function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+/* ============================= ANIMATION LOOP ============================= */
+function loop(ts){
+  if(!state.lastFrame) state.lastFrame = ts;
+  const dt = ts-state.lastFrame; state.lastFrame = ts;
+  if(state.playing && state.timeline){
+    state.currentTime += dt;
+    if(state.currentTime >= state.timeline.total){ state.currentTime = state.timeline.total; state.playing=false; updatePlayIcon(); }
+    render();
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ============================= UI WIRING ============================= */
+function $(sel){ return document.querySelector(sel); }
+function $all(sel){ return document.querySelectorAll(sel); }
+
+$('#inChar').addEventListener('input', e=> setByteFromChar(e.target.value.slice(0,1)));
+$('#inHex').addEventListener('input', e=> setByteFromHex(e.target.value));
+$('#inBin').addEventListener('input', e=> setByteFromBin(e.target.value));
+
+$('#inBaud').addEventListener('change', e=>{ state.cfg.baud = +e.target.value; rebuild(); });
+
+function wireSeg(id, prop){
+  $all('#'+id+' button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      $all('#'+id+' button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      state.cfg[prop] = (prop==='dataBits'||prop==='stopBits') ? +b.dataset.v : b.dataset.v;
+      if(prop==='dataBits'){ syncByteInputs(); }
+      rebuild();
+    });
+  });
+}
+wireSeg('segDataBits','dataBits');
+wireSeg('segParity','parity');
+wireSeg('segStop','stopBits');
+
+$all('.error-opt').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    $all('.error-opt').forEach(o=>o.classList.remove('active'));
+    opt.classList.add('active');
+    rebuild();
+  });
+});
+
+$('#btnPlay').addEventListener('click', ()=>{
+  if(state.faultBlocked) return;
+  if(state.currentTime>=state.timeline.total) state.currentTime=0;
+  state.playing = !state.playing;
+  updatePlayIcon();
+});
+$('#btnRestart').addEventListener('click', ()=>{ state.currentTime=0; state.playing=false; updatePlayIcon(); render(); });
+$('#btnStepFwd').addEventListener('click', ()=>{
+  if(state.faultBlocked || !state.timeline) return;
+  const cur = currentSegment(); const idx = state.timeline.segs.indexOf(cur);
+  const next = state.timeline.segs[Math.min(idx+1, state.timeline.segs.length-1)];
+  state.currentTime = next.t0+0.01; state.playing=false; updatePlayIcon(); render();
+});
+$('#btnStepBack').addEventListener('click', ()=>{
+  if(state.faultBlocked || !state.timeline) return;
+  const cur = currentSegment(); const idx = state.timeline.segs.indexOf(cur);
+  const prev = state.timeline.segs[Math.max(idx-1,0)];
+  state.currentTime = prev.t0+0.01; state.playing=false; updatePlayIcon(); render();
+});
+$('#inSpeed').addEventListener('change', e=>{
+  const wasPlaying = state.playing;
+  const fraction = state.timeline ? state.currentTime/state.timeline.total : 0;
+  state.speed = +e.target.value;
+  rebuild();
+  if(state.timeline){ state.currentTime = fraction*state.timeline.total; }
+  state.playing = wasPlaying; updatePlayIcon();
+});
+$('#scrubber').addEventListener('input', e=>{
+  if(!state.timeline) return;
+  state.currentTime = +e.target.value; state.playing=false; updatePlayIcon(); render();
+});
+
+$all('#viewTabs button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    $all('#viewTabs button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    const v = b.dataset.view;
+    $('#conceptView').style.display = v==='concept'?'':'none';
+    $('#realworldView').style.display = v==='realworld'?'':'none';
+  });
+});
+
+$('#engToggle').addEventListener('click', function(){
+  this.classList.toggle('on');
+  state.engineerDetail = this.classList.contains('on');
+  renderInternalsChain();
+});
+
+function toggleSection(id){
+  const s = document.getElementById(id);
+  s.classList.toggle('open');
+  const body = s.querySelector('.section-body');
+  body.style.maxHeight = s.classList.contains('open') ? body.scrollHeight+'px' : '0px';
+}
+
+window.addEventListener('resize', ()=>{ if(state.timeline) drawScope(); });
+
+/* ============================= INIT ============================= */
+function init(){
+  buildHeroSvg();
+  buildRealWorld();
+  document.getElementById('secInternals').classList.add('open');
+  document.getElementById('secBeginner').classList.add('open');
+  setByteFromChar('A');
+  rebuild();
+  document.querySelectorAll('.section.open .section-body').forEach(b=>{ b.style.maxHeight = b.scrollHeight+400+'px'; });
+
+  // auto first demo: play once shortly after load
+  setTimeout(()=>{
+    if(!state.playing){ state.currentTime=0; state.playing=true; updatePlayIcon(); }
+  }, 900);
+}
+init();
+</script>
+</body>
+</html>
