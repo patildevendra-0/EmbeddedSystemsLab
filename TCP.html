@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCP Interactive Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================= TOKENS ============================= */
+:root{
+  --bg: #f3f6fa;
+  --bg-grid: #e7edf4;
+  --panel: #ffffff;
+  --panel-soft: #f8fafc;
+  --ink: #0f2438;
+  --ink-dim: #56728c;
+  --ink-faint: #93a8bc;
+  --navy: #17324d;
+  --navy-2: #1f4468;
+  --line: #dde5ee;
+  --line-strong: #c4d0dd;
+  --blue: #2f6fed;
+  --blue-soft: #e7eefe;
+  --amber: #e08a1e;
+  --amber-soft: #fdf0dc;
+  --purple: #7c5cff;
+  --purple-soft: #eee9ff;
+  --green: #1c9d6f;
+  --green-soft: #e2f6ee;
+  --red: #e14a4a;
+  --red-soft: #fdeaea;
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 16px;
+  --shadow-sm: 0 1px 2px rgba(15,36,56,.06), 0 1px 1px rgba(15,36,56,.04);
+  --shadow-md: 0 6px 20px rgba(15,36,56,.08), 0 2px 6px rgba(15,36,56,.05);
+  --shadow-lg: 0 20px 48px rgba(15,36,56,.14), 0 4px 14px rgba(15,36,56,.07);
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+  --dur: 1;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(1200px 500px at 15% -10%, #eaf1fb 0%, transparent 60%),
+    linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0/100% 34px,
+    var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+}
+button{font-family:inherit;cursor:pointer;}
+input,select{font-family:inherit;}
+::selection{background:var(--blue-soft);}
+.mono{font-family:var(--font-mono);}
+.hidden{display:none !important;}
+a{color:var(--blue);}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+.eng-only{display:none;}
+body.engineer .eng-only{display:revert;}
+body.engineer .eng-only.flex{display:flex;}
+body.engineer .eng-only.grid2{display:grid;}
+body.engineer .eng-only.block{display:block;}
+
+/* ============================= SHELL ============================= */
+.app{max-width:1380px;margin:0 auto;padding:0 22px 80px;}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 4px 14px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-badge{width:40px;height:40px;border-radius:10px;background:linear-gradient(155deg,var(--navy),var(--navy-2));display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);flex:none;}
+.brand-badge svg{width:22px;height:22px;}
+.brand-text h1{font-family:var(--font-display);font-size:19px;margin:0;color:var(--ink);font-weight:700;}
+.brand-text p{margin:1px 0 0;font-size:12.5px;color:var(--ink-dim);}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;box-shadow:0 0 0 3px var(--green-soft);animation:pulse-dot 2s infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.35}}
+.topbar-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.mode-switch{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px;box-shadow:var(--shadow-sm);}
+.mode-switch button{border:none;background:transparent;padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--ink-dim);transition:background .18s,color .18s;}
+.mode-switch button.active{background:var(--navy);color:#fff;}
+
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-m);padding:10px 14px;margin-bottom:14px;box-shadow:var(--shadow-sm);flex-wrap:wrap;}
+.transport-btns{display:flex;align-items:center;gap:6px;}
+.tbtn{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel-soft);display:flex;align-items:center;justify-content:center;color:var(--navy);transition:background .15s,border-color .15s,transform .1s;}
+.tbtn:hover{background:var(--blue-soft);border-color:#bcd0f7;}
+.tbtn:active{transform:scale(.94);}
+.tbtn svg{width:15px;height:15px;}
+.speed-group{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-dim);}
+.speed-group input[type=range]{width:100px;accent-color:var(--blue);}
+.status-pills{display:flex;gap:8px;flex-wrap:wrap;}
+.pill{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--panel-soft);border:1px solid var(--line);color:var(--ink-dim);font-family:var(--font-mono);}
+.pill b{color:var(--navy);}
+.pill.state-established{color:var(--green);border-color:#bfe6d5;background:var(--green-soft);}
+.pill.state-closed{color:var(--ink-faint);}
+.pill.state-transient{color:var(--amber);border-color:#f2d3a0;background:var(--amber-soft);}
+
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.stat-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-m);padding:11px 13px;box-shadow:var(--shadow-sm);}
+.stat-card .v{font-family:var(--font-mono);font-size:19px;font-weight:700;color:var(--navy);}
+.stat-card .l{font-size:10px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.4px;margin-top:2px;}
+@media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr);}}
+
+/* ============================= HERO SCENE ============================= */
+.hero-wrap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-l);box-shadow:var(--shadow-md);padding:18px 18px 10px;margin-bottom:16px;position:relative;overflow:hidden;}
+.hero-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px;}
+.hero-head h2{font-family:var(--font-display);font-size:13.5px;margin:0;color:var(--ink-dim);font-weight:600;text-transform:uppercase;letter-spacing:.3px;}
+.hero-head .hint{font-size:11.5px;color:var(--ink-faint);}
+
+.scene{position:relative;display:grid;grid-template-columns:210px 1fr 210px;gap:10px;align-items:stretch;min-height:400px;padding:10px 0;}
+.endpoint{display:flex;flex-direction:column;gap:6px;z-index:3;}
+.ep-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-faint);font-weight:700;margin-bottom:2px;}
+.ep-addr{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-dim);margin-bottom:4px;}
+.stack-card{background:var(--panel-soft);border:1px solid var(--line);border-radius:var(--radius-m);padding:10px;box-shadow:var(--shadow-sm);}
+.stack-layers{display:flex;flex-direction:column;gap:4px;}
+.stack-layer{
+  border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:#fff;font-size:11px;
+  color:var(--ink-dim);cursor:pointer;transition:border-color .15s,background .15s;display:flex;align-items:center;justify-content:space-between;
+}
+.stack-layer:hover{border-color:var(--blue);background:var(--blue-soft);}
+.stack-layer b{color:var(--ink);font-size:11.5px;}
+.stack-layer .tag{font-family:var(--font-mono);font-size:9px;color:var(--ink-faint);}
+.stack-layer.tcp-layer{border-color:#cfe0fb;}
+.stack-layer.active-flash{animation:layer-flash calc(.6s / var(--dur)) ease;}
+@keyframes layer-flash{0%{box-shadow:0 0 0 0 rgba(240,151,42,.5);}100%{box-shadow:0 0 0 10px rgba(240,151,42,0);}}
+
+.ep-device{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.ep-device .icon{width:34px;height:34px;border-radius:8px;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--navy);flex:none;}
+.ep-device .icon svg{width:19px;height:19px;}
+.ep-device .name{font-size:12.5px;font-weight:700;color:var(--ink);}
+
+.ep-state-pill{align-self:flex-start;font-family:var(--font-mono);font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--panel-soft);border:1px solid var(--line);color:var(--ink-dim);}
+.ep-state-pill.est{background:var(--green-soft);color:var(--green);border-color:#bfe6d5;}
+.ep-state-pill.trans{background:var(--amber-soft);color:#a85f0e;border-color:#f2d3a0;}
+
+/* network path */
+.netpath{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2;}
+.net-rail{position:relative;width:100%;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 6px;}
+.net-line{position:absolute;left:0;right:0;top:50%;height:2px;background:var(--line-strong);transform:translateY(-50%);z-index:0;}
+.router{
+  position:relative;z-index:1;width:40px;height:40px;border-radius:10px;background:#fff;border:1.5px solid var(--line-strong);
+  display:flex;align-items:center;justify-content:center;color:var(--navy);box-shadow:var(--shadow-sm);
+}
+.router svg{width:20px;height:20px;}
+.router.congested{border-color:var(--red);color:var(--red);}
+.net-conditions-strip{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:6px;}
+.cond-chip{font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);background:var(--panel-soft);border:1px solid var(--line);border-radius:6px;padding:3px 8px;}
+
+.packet{
+  position:absolute;z-index:6;top:0;left:0;transform:translate(-50%,-50%);pointer-events:auto;
+  background:#fff;border:1.5px solid var(--amber);border-radius:8px;padding:5px 8px;box-shadow:var(--shadow-md);
+  font-family:var(--font-mono);font-size:9.5px;line-height:1.3;white-space:nowrap;opacity:0;cursor:pointer;
+}
+.packet .flags{color:#fff;background:var(--navy);border-radius:4px;padding:0 5px;font-weight:700;font-size:9px;margin-right:3px;display:inline-block;}
+.packet .pk-seq{color:var(--navy);font-weight:700;}
+.packet .pk-sub{color:var(--ink-dim);}
+.packet.ackpkt{border-color:var(--blue);}
+.packet.lostpkt{border-color:var(--red);opacity:.9 !important;}
+.packet:hover{box-shadow:0 0 0 3px var(--red-soft);}
+.packet .drop-hint{display:none;font-size:8px;color:var(--red);font-weight:700;}
+.packet:hover .drop-hint{display:block;}
+.dropx{
+  position:absolute;z-index:7;top:0;left:0;transform:translate(-50%,-50%);font-size:20px;color:var(--red);
+  font-weight:800;opacity:0;pointer-events:none;
+}
+
+.explain-bar{display:flex;gap:12px;align-items:flex-start;background:var(--panel-soft);border:1px solid var(--line);border-radius:var(--radius-m);padding:12px 14px;margin:8px 0 4px;}
+.explain-bar .tag{flex:none;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;background:var(--navy);padding:4px 9px;border-radius:6px;margin-top:1px;font-family:var(--font-mono);}
+.explain-bar .body{flex:1;min-width:0;}
+.explain-bar .body h4{margin:0 0 3px;font-size:13.5px;color:var(--ink);}
+.explain-bar .body p{margin:0;font-size:12.5px;color:var(--ink-dim);line-height:1.5;}
+.explain-bar .deeper{margin-top:6px;font-size:12px;color:var(--ink-dim);line-height:1.55;border-top:1px dashed var(--line-strong);padding-top:6px;display:none;}
+.explain-bar .deeper.show{display:block;}
+.explain-bar .deeper-btn{border:none;background:none;color:var(--blue);font-size:11.5px;font-weight:600;padding:0;margin-top:6px;cursor:pointer;}
+
+@media(max-width:900px){
+  .scene{grid-template-columns:1fr;}
+  .netpath{order:2;}
+  .net-rail{height:52px;}
+}
+
+/* ============================= PANELS / GRID ============================= */
+.grid-2{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-bottom:16px;align-items:start;}
+@media(max-width:980px){.grid-2{grid-template-columns:1fr;}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-l);box-shadow:var(--shadow-sm);padding:16px 18px;}
+.panel-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;flex-wrap:wrap;}
+.panel-title h3{font-family:var(--font-display);font-size:13.5px;margin:0;color:var(--ink);display:flex;align-items:center;gap:8px;}
+.panel-title .desc{font-size:11.5px;color:var(--ink-faint);}
+
+.field-row{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.field{flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:10.5px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.4px;}
+.field select,.field input[type=text],.field input[type=number]{border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--ink);background:var(--panel-soft);font-family:var(--font-mono);}
+.field select:focus,.field input:focus{outline:none;border-color:var(--blue);background:#fff;}
+.field input[type=range]{accent-color:var(--blue);}
+.field .rangeval{font-family:var(--font-mono);font-size:11px;color:var(--navy);font-weight:700;}
+
+.btn{border:none;border-radius:9px;padding:9px 15px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:7px;transition:transform .1s,box-shadow .15s;}
+.btn:active{transform:scale(.97);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.publish{background:var(--navy);color:#fff;box-shadow:var(--shadow-sm);}
+.btn.publish:hover{background:var(--navy-2);}
+.btn.ghost{background:var(--panel-soft);color:var(--ink-dim);border:1px solid var(--line);}
+.btn.ghost.danger{color:var(--red);border-color:#f3c6c6;}
+.btn.ghost.danger:hover{background:var(--red-soft);}
+.btn svg{width:13px;height:13px;}
+.composer-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* byte stream */
+.bytestream{display:flex;flex-wrap:wrap;gap:2px;font-family:var(--font-mono);font-size:11px;margin-top:8px;}
+.byte{width:20px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:3px;background:var(--panel-soft);border:1px solid var(--line);color:var(--ink-faint);}
+.byte.acked{background:var(--green-soft);color:var(--green);border-color:#bfe6d5;}
+.byte.inflight{background:var(--amber-soft);color:#a85f0e;border-color:#f2d3a0;}
+.byte.unsent{background:var(--panel-soft);color:var(--ink-faint);}
+.seg-boundary{border-left:2px solid var(--navy);}
+
+/* sliding window */
+.window-bar{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin-top:8px;}
+.window-seg{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;font-family:var(--font-mono);white-space:nowrap;overflow:hidden;}
+.window-seg.acked{background:var(--green);}
+.window-seg.inflight{background:var(--amber);}
+.window-seg.sendable{background:var(--blue);}
+.window-seg.unavailable{background:var(--line-strong);color:var(--ink-dim);}
+.window-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10.5px;color:var(--ink-dim);}
+.window-legend span{display:inline-flex;align-items:center;gap:5px;}
+.window-legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+/* cwnd chart */
+.chart-wrap{margin-top:8px;}
+.chart-legend{display:flex;gap:14px;font-size:10.5px;color:var(--ink-dim);margin-top:6px;flex-wrap:wrap;}
+.chart-legend span{display:inline-flex;align-items:center;gap:5px;}
+.chart-legend i{width:14px;height:2px;display:inline-block;}
+
+/* tabs */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.tab-btn{border:1px solid var(--line);background:var(--panel);color:var(--ink-dim);padding:8px 13px;border-radius:9px;font-size:11.5px;font-weight:700;box-shadow:var(--shadow-sm);}
+.tab-btn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.tab-btn.eng{display:none;}
+body.engineer .tab-btn.eng{display:inline-flex;}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* state machine */
+.state-diagram{display:flex;flex-direction:column;gap:6px;font-family:var(--font-mono);font-size:11px;}
+.state-node{border:1px solid var(--line);border-radius:7px;padding:6px 10px;background:var(--panel-soft);color:var(--ink-dim);transition:background .2s,border-color .2s,color .2s;}
+.state-node.current{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700;}
+.state-node.visited{border-color:#bcd0f7;background:var(--blue-soft);color:#1c4fb0;}
+
+/* socket api */
+.socket-seq{display:flex;flex-direction:column;gap:5px;font-family:var(--font-mono);font-size:11.5px;}
+.socket-call{border:1px solid var(--line);border-radius:7px;padding:6px 10px;background:var(--panel-soft);color:var(--ink-dim);}
+.socket-call.current{background:var(--purple-soft);color:#5836d6;border-color:#d6c9ff;font-weight:700;}
+.socket-call.done{color:var(--green);border-color:#bfe6d5;background:var(--green-soft);}
+
+/* timeline table */
+table.tl{width:100%;border-collapse:collapse;font-size:11px;font-family:var(--font-mono);}
+table.tl th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--ink-faint);padding:6px 6px;border-bottom:1px solid var(--line);font-family:var(--font-body);font-weight:700;}
+table.tl td{padding:6px;border-bottom:1px solid var(--line);color:var(--ink-dim);cursor:pointer;}
+table.tl tr:hover td{background:var(--blue-soft);}
+.dir-c2s{color:var(--navy);font-weight:700;}
+.dir-s2c{color:var(--purple);font-weight:700;}
+.st-lost{color:var(--red);font-weight:700;}
+.st-retrans{color:var(--amber);font-weight:700;}
+.st-ok{color:var(--green);}
+.flag-chip{font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--navy);color:#fff;margin-right:2px;}
+
+/* inspector drawer */
+.inspector{background:var(--panel-soft);border:1px solid var(--line);border-radius:var(--radius-m);padding:14px;margin-top:10px;}
+.inspector-empty{color:var(--ink-faint);font-size:12px;}
+.insp-layer{margin-bottom:10px;}
+.insp-layer h5{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-faint);}
+.insp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;}
+.insp-field{background:#fff;border:1px solid var(--line);border-radius:6px;padding:6px 8px;}
+.insp-field .k{font-size:9px;color:var(--ink-faint);text-transform:uppercase;}
+.insp-field .v{font-family:var(--font-mono);font-size:12px;color:var(--navy);font-weight:700;}
+.payload-toggle{display:flex;gap:6px;margin-bottom:6px;}
+.payload-toggle button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 9px;font-size:10.5px;color:var(--ink-dim);}
+.payload-toggle button.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+.payload-view{font-family:var(--font-mono);font-size:11.5px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:8px 10px;word-break:break-all;color:var(--ink);}
+
+/* log */
+.log-panel{max-height:230px;overflow-y:auto;padding-right:4px;}
+.log-entry{display:flex;gap:9px;align-items:flex-start;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px;}
+.log-entry:last-child{border-bottom:none;}
+.log-time{font-family:var(--font-mono);color:var(--ink-faint);font-size:10.5px;flex:none;margin-top:1px;min-width:56px;}
+.log-icon{flex:none;width:16px;height:16px;border-radius:4px;display:flex;align-items:center;justify-content:center;margin-top:1px;font-size:9px;}
+.log-icon.snd{background:var(--amber-soft);color:#a85f0e;}
+.log-icon.rcv{background:var(--green-soft);color:var(--green);}
+.log-icon.err{background:var(--red-soft);color:var(--red);}
+.log-icon.sys{background:var(--blue-soft);color:#1c4fb0;}
+.log-text b{color:var(--ink);}
+.log-text{color:var(--ink-dim);}
+
+.scn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+.scn-card{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--panel-soft);}
+.scn-card h4{margin:0 0 4px;font-size:12.5px;color:var(--ink);}
+.scn-card p{margin:0 0 8px;font-size:11px;color:var(--ink-dim);line-height:1.5;}
+
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.compare-col{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--panel-soft);}
+.compare-col h4{margin:0 0 8px;font-family:var(--font-display);font-size:13px;}
+.compare-col ul{margin:0;padding-left:18px;font-size:12px;color:var(--ink-dim);line-height:1.8;}
+
+footer.credit{text-align:center;color:var(--ink-faint);font-size:11px;margin-top:26px;}
+</style>
+</head>
+<body class="beginner">
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-badge">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="5" width="7" height="7" rx="1.5" stroke="#dbe8fa" stroke-width="1.6"/><rect x="14" y="12" width="7" height="7" rx="1.5" stroke="#9db6d6" stroke-width="1.6"/><path d="M10 8.5h4a3 3 0 0 1 3 3v.5" stroke="#f0972a" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>TCP Interactive Lab</h1>
+        <p><span class="live-dot"></span>Handshake, sequencing, windows &amp; recovery — live</p>
+      </div>
+    </div>
+    <div class="topbar-controls">
+      <div class="mode-switch">
+        <button id="modeBeginner" class="active">Beginner</button>
+        <button id="modeEngineer">Engineer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="transport-btns">
+      <button class="tbtn" id="btnRestart" title="Restart / new connection">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 4v5h5"/></svg>
+      </button>
+      <div class="speed-group">
+        <span>Speed</span>
+        <input type="range" id="speedRange" min="0.5" max="2.5" step="0.1" value="1">
+        <span class="mono" id="speedVal">1.0×</span>
+      </div>
+    </div>
+    <div class="status-pills">
+      <div class="pill" id="pillClientState">Client <b>CLOSED</b></div>
+      <div class="pill" id="pillServerState">Server <b>CLOSED</b></div>
+      <div class="pill">RTT <b id="pillRtt">—</b></div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card"><div class="v" id="statRtt">—</div><div class="l">RTT (SRTT)</div></div>
+    <div class="stat-card"><div class="v" id="statCwnd">1 MSS</div><div class="l">Congestion Window</div></div>
+    <div class="stat-card"><div class="v" id="statInflight">0 B</div><div class="l">Bytes In Flight</div></div>
+    <div class="stat-card"><div class="v" id="statThroughput">0 kbps</div><div class="l">Throughput</div></div>
+    <div class="stat-card"><div class="v" id="statRetrans">0</div><div class="l">Retransmissions</div></div>
+  </div>
+
+  <!-- ============ HERO SCENE ============ -->
+  <div class="hero-wrap">
+    <div class="hero-head">
+      <h2>Live Connection: Client ↔ Network ↔ Server</h2>
+      <span class="hint">Click a layer, router, or packet — click a travelling packet to drop it</span>
+    </div>
+    <div class="scene" id="scene">
+      <div class="endpoint" id="clientEndpoint">
+        <div class="ep-device"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M2 20h20"/></svg></div><div class="name">Client Laptop</div></div>
+        <div class="ep-addr" id="clientAddr">192.168.1.10:51542</div>
+        <span class="ep-state-pill" id="clientStatePill">CLOSED</span>
+        <div class="stack-card">
+          <div class="stack-layers">
+            <div class="stack-layer" data-layer="application"><b>Application</b><span class="tag">send()/recv()</span></div>
+            <div class="stack-layer" data-layer="socket"><b>Socket</b><span class="tag">fd 4</span></div>
+            <div class="stack-layer tcp-layer" data-layer="tcp" id="clientTcpLayer"><b>TCP</b><span class="tag">seq/ack</span></div>
+            <div class="stack-layer" data-layer="ip"><b>IP</b><span class="tag">routing</span></div>
+            <div class="stack-layer" data-layer="link"><b>Link / NIC</b><span class="tag">Wi-Fi</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="netpath">
+        <div class="net-rail">
+          <div class="net-line"></div>
+          <div class="router" id="routerA" title="Router A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 8V6M12 8V6M17 8V6"/></svg></div>
+          <div class="router" id="routerB" title="Router B"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 8V6M12 8V6M17 8V6"/></svg></div>
+        </div>
+        <div class="net-conditions-strip">
+          <span class="cond-chip" id="condLatency">latency 40ms</span>
+          <span class="cond-chip" id="condLoss">loss 0%</span>
+          <span class="cond-chip" id="condBw">bandwidth 50 Mbps</span>
+        </div>
+      </div>
+
+      <div class="endpoint" id="serverEndpoint" style="align-items:flex-end;text-align:right;">
+        <div class="ep-device" style="flex-direction:row-reverse;"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="2" width="14" height="20" rx="1.5"/><path d="M9 6h6M9 10h6"/></svg></div><div class="name">Server</div></div>
+        <div class="ep-addr" id="serverAddr">10.0.0.20:443</div>
+        <span class="ep-state-pill" id="serverStatePill">LISTEN</span>
+        <div class="stack-card">
+          <div class="stack-layers">
+            <div class="stack-layer" data-layer="link"><b>Link / NIC</b><span class="tag">Ethernet</span></div>
+            <div class="stack-layer" data-layer="ip"><b>IP</b><span class="tag">routing</span></div>
+            <div class="stack-layer tcp-layer" data-layer="tcp" id="serverTcpLayer"><b>TCP</b><span class="tag">seq/ack</span></div>
+            <div class="stack-layer" data-layer="socket"><b>Listening Socket</b><span class="tag">fd 3</span></div>
+            <div class="stack-layer" data-layer="application"><b>Application</b><span class="tag">accept()</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="explain-bar" id="explainBar">
+      <span class="tag" id="explainTag">TCP</span>
+      <div class="body">
+        <h4 id="explainTitle">TCP turns an unreliable network into a reliable byte stream</h4>
+        <p id="explainText">Click the three-way handshake button below to begin, or click any layer, router, or packet to learn what it does.</p>
+        <button class="deeper-btn" id="deeperBtn">Explain deeper ▾</button>
+        <div class="deeper" id="deeperText"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ COMPOSER + LOG ============ -->
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-title"><h3>Connection Control</h3><span class="desc">Establish, send, and close the connection</span></div>
+
+      <div class="composer-actions" style="margin-bottom:12px;">
+        <button class="btn publish" id="btnHandshake">Run 3-way handshake</button>
+        <button class="btn ghost" id="btnWrongPort">Attempt wrong port</button>
+      </div>
+
+      <div class="field-row">
+        <div class="field" style="flex:2;">
+          <label for="inpData">Client application writes</label>
+          <input type="text" id="inpData" value="Hello TCP, this message is long enough to span several segments.">
+        </div>
+        <div class="field">
+          <label for="inpMss">MSS (demo bytes)</label>
+          <input type="number" id="inpMss" value="20" min="6" max="80">
+        </div>
+      </div>
+      <div class="composer-actions">
+        <button class="btn publish" id="btnSend">Send data (client → server)</button>
+        <button class="btn ghost" id="btnSendReply">Server replies</button>
+      </div>
+
+      <div class="composer-actions" style="margin-top:12px;">
+        <button class="btn ghost" id="btnFin">Graceful close (FIN)</button>
+        <button class="btn ghost danger" id="btnRst">Send RST</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><h3>Live Event Log</h3><span class="desc" id="logCount">0 events</span></div>
+      <div class="log-panel" id="logPanel"></div>
+    </div>
+  </div>
+
+  <!-- ============ TABS ============ -->
+  <div class="tabs" id="tabBar">
+    <button class="tab-btn active" data-tab="handshake">Handshake &amp; State</button>
+    <button class="tab-btn" data-tab="stream">Byte Stream &amp; Window</button>
+    <button class="tab-btn eng" data-tab="congestion">Congestion Control</button>
+    <button class="tab-btn" data-tab="timeline">Packet Timeline</button>
+    <button class="tab-btn" data-tab="network">Network Conditions</button>
+    <button class="tab-btn eng" data-tab="socket">Socket API</button>
+    <button class="tab-btn" data-tab="scenarios">Scenarios</button>
+    <button class="tab-btn" data-tab="compare">TCP vs UDP</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-handshake">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title"><h3>Three-Way Handshake</h3></div>
+        <p style="font-size:12.5px;color:var(--ink-dim);line-height:1.6;margin-top:0;">Each side picks a random Initial Sequence Number (ISN). SYN and SYN-ACK each consume one sequence number even though they carry no data.</p>
+        <div class="insp-grid" id="handshakeFields"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><h3>TCP State Machine</h3><span class="desc eng-only">Full state set — Engineer mode</span></div>
+        <div class="grid-2" style="grid-template-columns:1fr 1fr;gap:12px;margin:0;">
+          <div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;margin-bottom:6px;">Client</div>
+            <div class="state-diagram" id="clientStateDiagram"></div>
+          </div>
+          <div>
+            <div style="font-size:10.5px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;margin-bottom:6px;">Server</div>
+            <div class="state-diagram" id="serverStateDiagram"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-stream">
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-title"><h3>Client → Server Byte Stream</h3><span class="desc">Green = acked · Amber = sent, unacked · Grey = not yet sent</span></div>
+      <div class="bytestream" id="bytestreamC2S"></div>
+      <div class="insp-grid" style="margin-top:10px;" id="seqAckReadoutC2S"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><h3>Sliding Window (Client → Server)</h3><span class="desc">Effective window ≈ min(cwnd, rwnd) − in-flight</span></div>
+      <div class="window-bar" id="windowBar"></div>
+      <div class="window-legend">
+        <span><i style="background:var(--green)"></i>Acked</span>
+        <span><i style="background:var(--amber)"></i>In flight</span>
+        <span><i style="background:var(--blue)"></i>Sendable now</span>
+        <span><i style="background:var(--line-strong)"></i>Beyond window</span>
+      </div>
+      <div class="insp-grid" style="margin-top:10px;">
+        <div class="insp-field"><div class="k">cwnd</div><div class="v" id="wCwnd">1 MSS</div></div>
+        <div class="insp-field"><div class="k">rwnd (server)</div><div class="v" id="wRwnd">6000 B</div></div>
+        <div class="insp-field"><div class="k">In flight</div><div class="v" id="wInflight">0 B</div></div>
+        <div class="insp-field"><div class="k">Effective window</div><div class="v" id="wEffective">— B</div></div>
+      </div>
+      <div class="composer-actions eng-only" style="margin-top:12px;">
+        <button class="btn ghost" id="btnAppRead">Server app reads 40 bytes</button>
+        <span style="font-size:11px;color:var(--ink-faint);align-self:center;">Simulates a slow receiver freeing buffer space</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-congestion">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title"><h3>cwnd Over Time</h3><span class="desc" id="phaseLabel">slow start</span></div>
+        <div class="chart-wrap"><svg id="cwndChart" viewBox="0 0 480 180" style="width:100%;height:180px;"></svg></div>
+        <div class="chart-legend">
+          <span><i style="background:var(--blue)"></i>cwnd</span>
+          <span><i style="background:var(--red);border-top:2px dashed var(--red);"></i>ssthresh</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><h3>What's happening</h3></div>
+        <p style="font-size:12.5px;color:var(--ink-dim);line-height:1.65;">
+          <b>Slow start:</b> cwnd grows by roughly 1 MSS per ACK, doubling per round trip, to quickly probe available capacity.<br><br>
+          <b>Congestion avoidance:</b> once cwnd passes ssthresh, growth slows to roughly 1 MSS per round trip.<br><br>
+          <b>On timeout:</b> ssthresh drops to half of cwnd, and cwnd resets to 1 MSS — a conservative restart.<br><br>
+          <b>On fast retransmit</b> (3 duplicate ACKs): ssthresh halves and cwnd jumps directly to the new ssthresh, skipping a full slow start.
+        </p>
+        <p style="font-size:11px;color:var(--ink-faint);">This is a simplified conceptual model — real stacks (Reno, CUBIC, BBR, …) differ in their exact growth functions.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-timeline">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title"><h3>Segment Timeline</h3><span class="desc">Click a row to inspect the packet</span></div>
+        <table class="tl">
+          <thead><tr><th>t</th><th>dir</th><th>flags</th><th>seq</th><th>ack</th><th>len</th><th>win</th><th>status</th></tr></thead>
+          <tbody id="tlBody"></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><h3>Packet Inspector</h3></div>
+        <div class="inspector" id="inspector"><div class="inspector-empty">Select a packet from the timeline, or click one travelling through the network above.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-network">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title"><h3>Network Conditions</h3></div>
+        <div class="field-row">
+          <div class="field"><label>Preset</label>
+            <select id="netPreset">
+              <option value="lan">Local LAN</option>
+              <option value="mobile">Mobile network</option>
+              <option value="sat">Satellite-like link</option>
+              <option value="congested">Congested network</option>
+              <option value="custom" selected>Custom</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>One-way latency <span class="rangeval" id="latVal">40ms</span></label><input type="range" id="latRange" min="2" max="400" value="40"></div>
+          <div class="field"><label>Jitter <span class="rangeval" id="jitVal">5ms</span></label><input type="range" id="jitRange" min="0" max="120" value="5"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Packet loss <span class="rangeval" id="lossVal">0%</span></label><input type="range" id="lossRange" min="0" max="30" value="0"></div>
+          <div class="field"><label>Bandwidth</label>
+            <select id="bwSelect">
+              <option value="1">1 Mbps</option>
+              <option value="10">10 Mbps</option>
+              <option value="50" selected>50 Mbps</option>
+              <option value="100">100 Mbps</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="panel eng-only">
+        <div class="panel-title"><h3>Bandwidth-Delay Product</h3></div>
+        <p style="font-size:12.5px;color:var(--ink-dim);line-height:1.6;">BDP = bandwidth × RTT — roughly how much data should be in flight to fully use the path.</p>
+        <div class="insp-grid">
+          <div class="insp-field"><div class="k">Bandwidth</div><div class="v" id="bdpBw">50 Mbps</div></div>
+          <div class="insp-field"><div class="k">RTT</div><div class="v" id="bdpRtt">80 ms</div></div>
+          <div class="insp-field"><div class="k">BDP</div><div class="v" id="bdpVal">500 KB</div></div>
+          <div class="insp-field"><div class="k">Current in-flight</div><div class="v" id="bdpInflight">0 B</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-socket">
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-title"><h3>Server Socket Calls</h3></div>
+        <div class="socket-seq" id="serverSocketSeq"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title"><h3>Client Socket Calls</h3></div>
+        <div class="socket-seq" id="clientSocketSeq"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-scenarios">
+    <div class="panel">
+      <div class="panel-title"><h3>Guided Scenarios</h3><span class="desc">Each one runs a real sequence through the same simulator</span></div>
+      <div class="scn-grid">
+        <div class="scn-card"><h4>Normal connection</h4><p>Handshake, data transfer, graceful close — nothing goes wrong.</p><button class="btn ghost" data-scn="normal">Run</button></div>
+        <div class="scn-card"><h4>Packet loss</h4><p>A data segment is dropped; watch duplicate ACKs trigger fast retransmit.</p><button class="btn ghost" data-scn="loss">Run</button></div>
+        <div class="scn-card"><h4>High latency</h4><p>RTT jumps to ~400ms — see how it slows the handshake and ramp-up.</p><button class="btn ghost" data-scn="latency">Run</button></div>
+        <div class="scn-card"><h4>Out of order</h4><p>Segments are reordered in the network; the receiver reports a gap.</p><button class="btn ghost" data-scn="reorder">Run</button></div>
+        <div class="scn-card"><h4>Slow receiver</h4><p>The server stops reading; watch rwnd shrink toward zero window.</p><button class="btn ghost" data-scn="slowrecv">Run</button></div>
+        <div class="scn-card"><h4>Congestion</h4><p>Heavy loss simulates a congested path; cwnd repeatedly collapses.</p><button class="btn ghost" data-scn="congestion">Run</button></div>
+        <div class="scn-card"><h4>Wrong port</h4><p>Client connects to a port nobody is listening on — server responds RST.</p><button class="btn ghost" data-scn="wrongport">Run</button></div>
+        <div class="scn-card"><h4>Reset</h4><p>An established connection is abruptly reset instead of closed gracefully.</p><button class="btn ghost" data-scn="reset">Run</button></div>
+        <div class="scn-card"><h4>Zero window</h4><p>Server's receive buffer fills completely; sender must pause and probe.</p><button class="btn ghost" data-scn="zerowindow">Run</button></div>
+        <div class="scn-card"><h4>Graceful close</h4><p>Full four-way FIN/ACK teardown with independent half-closes.</p><button class="btn ghost" data-scn="close">Run</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-compare">
+    <div class="panel">
+      <div class="panel-title"><h3>TCP vs UDP</h3><span class="desc">Same network, two very different contracts</span></div>
+      <div class="compare-grid">
+        <div class="compare-col">
+          <h4>TCP</h4>
+          <ul>
+            <li>Connection-oriented (handshake required)</li>
+            <li>Reliable, ordered byte stream</li>
+            <li>Acknowledgements + retransmission</li>
+            <li>Flow control (rwnd)</li>
+            <li>Congestion control (cwnd)</li>
+            <li>Higher overhead, more predictable delivery</li>
+          </ul>
+        </div>
+        <div class="compare-col">
+          <h4>UDP</h4>
+          <ul>
+            <li>Connectionless — no handshake</li>
+            <li>Datagrams, no reliability guarantee</li>
+            <li>No acknowledgement or retransmission</li>
+            <li>No flow control</li>
+            <li>No congestion control</li>
+            <li>Lower overhead, lower and more predictable latency per packet</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="credit">TCP Interactive Lab — a conceptual model of one TCP variant (Reno-like slow start / congestion avoidance / fast retransmit). Real stacks vary. No real network traffic is sent.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONSTANTS / EXPLAIN CONTENT
+   ============================================================ */
+const EXPLAIN = {
+  application:{tag:"APPLICATION", title:"The application only sees a byte stream", text:"It calls send() and recv(). It has no idea whether TCP grouped its bytes into one segment or ten.", deep:"This is why TCP is described as providing byte-stream semantics rather than message semantics: send() boundaries are not preserved across the network."},
+  socket:{tag:"SOCKET", title:"The socket is the application's handle to TCP", text:"A socket wraps a TCP connection (or listening state) behind a simple file-descriptor-like API: socket(), bind(), listen(), accept(), connect(), send(), recv(), close().", deep:"The kernel's TCP implementation lives behind the socket layer — segmentation, sequencing, acknowledgement, retransmission and windowing all happen underneath, invisible to normal application code."},
+  tcp:{tag:"TCP", title:"TCP turns an unreliable network into a reliable stream", text:"It adds sequence numbers, acknowledgements, retransmission timers, and windows on top of IP, which by itself offers no delivery guarantee.", deep:"TCP's reliability is not one mechanism — it is several working together: sequence numbers for ordering and duplicate detection, ACKs for confirmation, checksums for corruption detection, retransmission for loss recovery, and windows for flow/congestion control."},
+  ip:{tag:"IP", title:"IP delivers packets between hosts, best-effort", text:"IP does not guarantee delivery, order, or that a packet won't be duplicated. TCP exists specifically to compensate for that.", deep:"Each IP packet carries the TCP segment as its payload, plus source/destination addresses, TTL, and a protocol field identifying the payload as TCP."},
+  link:{tag:"LINK / NIC", title:"The link layer moves frames across one physical hop", text:"Wi-Fi, Ethernet, and cellular radios are link-layer technologies. TCP has no direct control over them.", deep:"Each router along the path only looks at the link and IP layers to forward a packet onward — it does not need to understand TCP at all."},
+  router:{tag:"ROUTER", title:"Routers forward IP packets, hop by hop", text:"Each hop adds queueing delay, and under load may drop packets rather than queue them indefinitely — a major source of real-world packet loss.", deep:"TCP has no visibility into individual router queues; it infers congestion indirectly, from missing ACKs and rising delay."},
+  seq:{tag:"SEQ", title:"Sequence numbers identify byte positions, not packets", text:"A segment's SEQ field is the position of its first payload byte within the stream, counted from the connection's Initial Sequence Number (ISN).", deep:"SYN and FIN each consume one sequence number even though they carry no payload, which is why the first data byte after a handshake is ISN+1."},
+  ack:{tag:"ACK", title:"The ACK number is the next byte expected", text:"An ACK of 6000 means: \"I have everything through byte 5999 — send me 6000 next.\" It is cumulative, not per-packet.", deep:"Because ACKs are cumulative, one ACK can confirm several segments at once. Repeated ACKs for the same number (duplicate ACKs) signal a gap in what has arrived."},
+  window:{tag:"WINDOW", title:"The receive window bounds unacknowledged data", text:"The receiver advertises how many bytes of buffer space it currently has. The sender may not have more than that many bytes outstanding.", deep:"This is flow control — a receiver-imposed limit, independent of network conditions. It exists purely so a fast sender cannot overrun a slow receiver's memory."},
+  cwnd:{tag:"CWND", title:"cwnd is the network's self-imposed speed limit", text:"Separately from the receive window, TCP maintains a congestion window representing how much data it believes the network path can currently absorb.", deep:"The sender's actual ceiling is the smaller of cwnd and the receive window — a receiver-imposed and a network-imposed limit, taken together."},
+  rto:{tag:"RTO", title:"The retransmission timeout is TCP's last resort", text:"If an ACK doesn't arrive within the RTO, TCP assumes the segment was lost and retransmits — without waiting indefinitely.", deep:"RTO is derived from measured RTT samples (smoothed RTT and RTT variance). It grows if retransmissions keep failing, and a timeout is treated as a strong congestion signal."},
+  syn:{tag:"SYN", title:"SYN requests a new connection", text:"It carries the sender's chosen Initial Sequence Number and asks the peer to synchronize sequence spaces.", deep:"A SYN consumes one sequence number, which is why the first byte of real data uses ISN+1, not ISN."},
+  fin:{tag:"FIN", title:"FIN requests a graceful, directional shutdown", text:"It tells the peer \"I have no more data to send,\" without necessarily stopping the other direction of the connection.", deep:"Because TCP is full-duplex, each side sends its own FIN independently — this is why a full close is a 4-step exchange, not a 2-step one."},
+  rst:{tag:"RST", title:"RST abruptly resets a connection", text:"Unlike FIN, RST is not a negotiation — it immediately tears down connection state, often after an unexpected condition like a closed port.", deep:"An RST after a SYN typically means nothing is listening on that port. An RST mid-connection can mean an application crashed or explicitly aborted the socket."},
+  mss:{tag:"MSS", title:"MSS bounds how much payload one segment carries", text:"Maximum Segment Size is the largest chunk of application data TCP will put in a single segment for this connection.", deep:"MSS is negotiated during the handshake and constrains payload size only — it does not include the TCP or IP headers themselves."},
+  sack:{tag:"SACK", title:"Selective ACK reports non-contiguous received ranges", text:"Instead of only saying \"I'm missing byte X,\" SACK lets a receiver tell the sender exactly which later ranges it already has.", deep:"This lets the sender retransmit only the actual gap instead of everything after it, which matters a lot when multiple segments are lost in one window."},
+  timewait:{tag:"TIME-WAIT", title:"TIME-WAIT is a deliberate waiting period after close", text:"The side that sends the final ACK of a close sequence waits briefly before fully discarding connection state.", deep:"This protects against two things: a delayed, stray segment from the old connection being misinterpreted by a new connection reusing the same ports, and ensuring the final ACK is retransmitted if it gets lost and the peer resends its FIN."},
+};
+function deviceEndpointExplain(){}
+function explain(key){
+  const d = EXPLAIN[key] || EXPLAIN.tcp;
+  document.getElementById("explainTag").textContent = d.tag;
+  document.getElementById("explainTitle").textContent = d.title;
+  document.getElementById("explainText").textContent = d.text;
+  document.getElementById("deeperText").textContent = d.deep;
+  document.getElementById("deeperText").classList.remove("show");
+  document.getElementById("deeperBtn").textContent = "Explain deeper ▾";
+  document.getElementById("explainBar").scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+document.getElementById("deeperBtn").addEventListener("click", ()=>{
+  const dt = document.getElementById("deeperText");
+  dt.classList.toggle("show");
+  document.getElementById("deeperBtn").textContent = dt.classList.contains("show") ? "Hide details ▴" : "Explain deeper ▾";
+});
+document.querySelectorAll(".stack-layer").forEach(el=>{
+  el.addEventListener("click", ()=>{
+    explain(el.dataset.layer);
+    el.classList.add("active-flash");
+    setTimeout(()=> el.classList.remove("active-flash"), dur(650));
+  });
+});
+document.getElementById("routerA").addEventListener("click", ()=> explain("router"));
+document.getElementById("routerB").addEventListener("click", ()=> explain("router"));
+
+/* ============================================================
+   GLOBAL STATE
+   ============================================================ */
+const state = {
+  mode:"beginner",
+  speed:1,
+  net:{ latency:40, jitter:5, loss:0, bwMbps:50 },
+  mss:20,
+  clientState:"CLOSED",
+  serverState:"LISTEN",
+  clientISN:0, serverISN:0,
+  srtt:null, rttSamples:[],
+  retransCount:0,
+  log:[],
+  packets:[],           // full history for timeline
+  socketCallsClient:["socket()","connect()","send()","recv()","close()"],
+  socketCallsServer:["socket()","bind()","listen()","accept()","recv()","send()","close()"],
+  socketDoneClient:0, socketDoneServer:0,
+  cwndHistory:[],        // {t, cwnd, ssthresh}
+  timeStart: Date.now(),
+};
+
+function dur(ms){ return ms / state.speed; }
+function nowSec(){ return ((Date.now()-state.timeStart)/1000).toFixed(3); }
+function randISN(){ return Math.floor(Math.random()*900000)+100000; }
+
+/* per-direction stream: c2s (client sends) and s2c (server sends) */
+function newStream(senderRole, receiverRole, isn){
+  return {
+    sender:senderRole, receiver:receiverRole,
+    isn:isn, base:isn+1,
+    appData:"",             // full bytes written so far
+    nextToSend:0,            // index into appData not yet transmitted (queued)
+    sndUna:0,                 // index of oldest unacked byte
+    inFlight:[],              // {id,startIdx,len,seq,sentAt,rtoAt,rtoHandle,retransmits}
+    cwndMss:1, ssthreshMss:8, phase:"slow-start",
+    dupAckCount:0, lastAckIdx:-1,
+    recvExpectedIdx:0,        // bytes contiguous-received count on the OTHER end (tracked here for convenience)
+    recvBuffered:[],          // out-of-order ranges received at receiver: {startIdx,len}
+    deliveredToApp:0,         // bytes app has read on receiver side
+    bufferCapacity:6000,
+    zeroWindowProbeTimer:null,
+    segCounter:0,
+  };
+}
+let streams = { c2s:null, s2c:null };
+
+/* ============================================================
+   DOM: state pills, addresses
+   ============================================================ */
+function setClientState(s){
+  state.clientState = s;
+  document.getElementById("clientStatePill").textContent = s;
+  document.getElementById("clientStatePill").className = "ep-state-pill " + (s==="ESTABLISHED" ? "est" : (s==="CLOSED"||s==="LISTEN" ? "" : "trans"));
+  const pill = document.getElementById("pillClientState");
+  pill.innerHTML = "Client <b>"+s+"</b>";
+  pill.className = "pill " + (s==="ESTABLISHED" ? "state-established" : (s==="CLOSED" ? "state-closed" : "state-transient"));
+  drawStateDiagram("client");
+}
+function setServerState(s){
+  state.serverState = s;
+  document.getElementById("serverStatePill").textContent = s;
+  document.getElementById("serverStatePill").className = "ep-state-pill " + (s==="ESTABLISHED" ? "est" : (s==="CLOSED"||s==="LISTEN" ? "" : "trans"));
+  const pill = document.getElementById("pillServerState");
+  pill.innerHTML = "Server <b>"+s+"</b>";
+  pill.className = "pill " + (s==="ESTABLISHED" ? "state-established" : (s==="CLOSED" ? "state-closed" : "state-transient"));
+  drawStateDiagram("server");
+}
+
+const CLIENT_STATES = ["CLOSED","SYN-SENT","ESTABLISHED","FIN-WAIT-1","FIN-WAIT-2","TIME-WAIT","CLOSED"];
+const SERVER_STATES = ["LISTEN","SYN-RECEIVED","ESTABLISHED","CLOSE-WAIT","LAST-ACK","CLOSED"];
+function drawStateDiagram(who){
+  const list = who==="client" ? CLIENT_STATES : SERVER_STATES;
+  const current = who==="client" ? state.clientState : state.serverState;
+  const seen = who==="client" ? state._clientSeen || (state._clientSeen=new Set()) : state._serverSeen || (state._serverSeen=new Set());
+  seen.add(current);
+  const el = document.getElementById(who==="client"?"clientStateDiagram":"serverStateDiagram");
+  const uniq = [...new Set(list)];
+  el.innerHTML = uniq.map(s=>{
+    const cls = s===current ? "current" : (seen.has(s) ? "visited" : "");
+    return `<div class="state-node ${cls}">${s}</div>`;
+  }).join("");
+}
+setClientState("CLOSED");
+setServerState("LISTEN");
+
+/* ============================================================
+   LOGGING
+   ============================================================ */
+const LOG_ICON = {snd:"→", rcv:"←", err:"!", sys:"●"};
+function logEvent(type, html){
+  const ts = nowSec()+"s";
+  state.log.unshift({type, html, ts});
+  if(state.log.length>100) state.log.pop();
+  const panel = document.getElementById("logPanel");
+  panel.innerHTML = state.log.map(e=>`
+    <div class="log-entry"><span class="log-time">${e.ts}</span><span class="log-icon ${e.type}">${LOG_ICON[e.type]}</span><span class="log-text">${e.html}</span></div>`).join("");
+  document.getElementById("logCount").textContent = state.log.length+" events";
+}
+
+/* ============================================================
+   PACKET ANIMATION (multi-hop across client - routerA - routerB - server)
+   ============================================================ */
+const scene = document.getElementById("scene");
+function ptOf(el){
+  const r = el.getBoundingClientRect();
+  const sc = scene.getBoundingClientRect();
+  return {x: r.left + r.width/2 - sc.left, y: r.top + r.height/2 - sc.top};
+}
+function waypoints(dir){ // dir: 'c2s' or 's2c'
+  const c = ptOf(document.getElementById("clientTcpLayer"));
+  const a = ptOf(document.getElementById("routerA"));
+  const b = ptOf(document.getElementById("routerB"));
+  const s = ptOf(document.getElementById("serverTcpLayer"));
+  return dir==="c2s" ? [c,a,b,s] : [s,b,a,c];
+}
+
+function spawnAndTravel(dir, meta){
+  // meta: {flags, seq, ack, len, win, payload, kind, id}
+  return new Promise(resolve=>{
+    const pts = waypoints(dir);
+    const totalHops = pts.length-1;
+    const hopLatency = state.net.latency; // ms one-way total split across hops
+    const jitterMs = (Math.random()*2-1)*state.net.jitter;
+    const perHop = Math.max(4, (hopLatency + jitterMs)/totalHops);
+    const bwDelay = Math.max(0, (meta.len||0) * 8 / (state.net.bwMbps*1000) ); // ms, crude
+
+    const el = document.createElement("div");
+    el.className = "packet " + (meta.kind==="ack" ? "ackpkt" : "");
+    el.innerHTML = `<span class="flags">${meta.flags}</span><span class="pk-seq">${meta.seqLabel||""}</span>
+      <div class="pk-sub">${meta.subLabel||""}</div><div class="drop-hint">click to drop</div>`;
+    scene.appendChild(el);
+    el.style.left = pts[0].x+"px"; el.style.top = pts[0].y+"px";
+
+    let dropped = false;
+    let lost = meta.forceLoss || (Math.random()*100 < state.net.loss && meta.canLoss!==false);
+    el.addEventListener("click", ()=>{
+      if(dropped || el.dataset.done) return;
+      dropped = true;
+      showDropX(pts[Math.min(1,pts.length-1)]);
+      el.classList.add("lostpkt");
+      logEvent("err", `<b>Manually dropped</b> ${meta.flags} ${meta.seqLabel||""} mid-flight.`);
+      el.style.transition = `opacity ${dur(200)}ms`;
+      el.style.opacity = "0";
+      setTimeout(()=> el.remove(), dur(220));
+    });
+
+    requestAnimationFrame(()=>{ el.style.opacity="1"; });
+    let hop = 0;
+    function nextHop(){
+      if(dropped){ resolve({lost:true, dropped:true}); return; }
+      if(hop >= totalHops){
+        el.dataset.done = "1";
+        if(lost){
+          showDropX(pts[pts.length-1]);
+          el.classList.add("lostpkt");
+        }
+        el.style.transition = `opacity ${dur(180)}ms`;
+        el.style.opacity = "0";
+        setTimeout(()=> el.remove(), dur(200));
+        resolve({lost, dropped:false});
+        return;
+      }
+      const from = pts[hop], to = pts[hop+1];
+      const legTime = perHop + (hop===0? bwDelay/totalHops : 0);
+      el.style.transition = `left ${dur(legTime)}ms linear, top ${dur(legTime)}ms linear`;
+      requestAnimationFrame(()=>{ el.style.left = to.x+"px"; el.style.top = to.y+"px"; });
+      hop++;
+      setTimeout(nextHop, dur(legTime));
+    }
+    nextHop();
+  });
+}
+function showDropX(pt){
+  const x = document.createElement("div");
+  x.className = "dropx"; x.textContent = "✕";
+  x.style.left = pt.x+"px"; x.style.top = pt.y+"px";
+  scene.appendChild(x);
+  requestAnimationFrame(()=>{ x.style.opacity = "1"; });
+  setTimeout(()=>{ x.style.opacity="0"; setTimeout(()=>x.remove(), dur(250)); }, dur(350));
+}
+function flashLayer(role){
+  const el = document.getElementById(role==="client" ? "clientTcpLayer" : "serverTcpLayer");
+  el.classList.add("active-flash");
+  setTimeout(()=> el.classList.remove("active-flash"), dur(650));
+}
+
+/* ============================================================
+   HANDSHAKE
+   ============================================================ */
+const btnHandshake = document.getElementById("btnHandshake");
+async function runHandshake(opts){
+  opts = opts || {};
+  if(state.clientState!=="CLOSED" && !opts.force) return;
+  state.clientISN = randISN(); state.serverISN = randISN();
+  streams.c2s = newStream("client","server", state.clientISN);
+  streams.s2c = newStream("server","client", state.serverISN);
+
+  setClientState("SYN-SENT");
+  markSocket("client",1); // connect()
+  logEvent("snd", `Client sends <b>SYN</b> — ISN=${state.clientISN}`);
+  recordPacket("c2s", {flags:"SYN", seq:state.clientISN, ack:null, len:0, win:8*state.mss, kind:"ctl"});
+  const r1 = await spawnAndTravel("c2s", {flags:"SYN", seqLabel:"SEQ "+state.clientISN, subLabel:"SYN=1 ACK=0", len:0, kind:"ctl", canLoss:false});
+  flashLayer("server");
+  setServerState("SYN-RECEIVED");
+  markSocket("server",3); // accept() begins
+
+  logEvent("snd", `Server replies <b>SYN-ACK</b> — ISN=${state.serverISN}, ACK=${state.clientISN+1}`);
+  recordPacket("s2c", {flags:"SYN,ACK", seq:state.serverISN, ack:state.clientISN+1, len:0, win:8*state.mss, kind:"ctl"});
+  const t0 = performance.now();
+  await spawnAndTravel("s2c", {flags:"SYN,ACK", seqLabel:"SEQ "+state.serverISN, subLabel:"ACK "+(state.clientISN+1), len:0, kind:"ctl", canLoss:false});
+  flashLayer("client");
+  setClientState("ESTABLISHED");
+  markSocket("client",1,true);
+
+  logEvent("snd", `Client sends <b>ACK</b> — ACK=${state.serverISN+1}, connection established`);
+  recordPacket("c2s", {flags:"ACK", seq:state.clientISN+1, ack:state.serverISN+1, len:0, win:8*state.mss, kind:"ctl"});
+  await spawnAndTravel("c2s", {flags:"ACK", seqLabel:"SEQ "+(state.clientISN+1), subLabel:"ACK "+(state.serverISN+1), len:0, kind:"ack", canLoss:false});
+  const rtt = performance.now()-t0;
+  sampleRtt(rtt);
+  flashLayer("server");
+  setServerState("ESTABLISHED");
+  markSocket("server",3,true);
+  logEvent("sys", `<b>Connection ESTABLISHED</b> on both sides.`);
+  renderHandshakeFields();
+  renderByteStream(); renderWindow(); updateStats();
+}
+btnHandshake.addEventListener("click", ()=> runHandshake());
+
+function markSocket(role, idx, done){
+  if(role==="client"){ if(done) state.socketDoneClient = Math.max(state.socketDoneClient, idx+1); else state.socketDoneClient = Math.max(state.socketDoneClient, idx); }
+  else { if(done) state.socketDoneServer = Math.max(state.socketDoneServer, idx+1); else state.socketDoneServer = Math.max(state.socketDoneServer, idx); }
+  renderSocketSeq();
+}
+function renderSocketSeq(){
+  const c = document.getElementById("clientSocketSeq");
+  c.innerHTML = state.socketCallsClient.map((call,i)=>{
+    const cls = i < state.socketDoneClient ? "done" : (i===state.socketDoneClient ? "current" : "");
+    return `<div class="socket-call ${cls}">${call}</div>`;
+  }).join("");
+  const s = document.getElementById("serverSocketSeq");
+  s.innerHTML = state.socketCallsServer.map((call,i)=>{
+    const cls = i < state.socketDoneServer ? "done" : (i===state.socketDoneServer ? "current" : "");
+    return `<div class="socket-call ${cls}">${call}</div>`;
+  }).join("");
+}
+renderSocketSeq();
+
+function renderHandshakeFields(){
+  const el = document.getElementById("handshakeFields");
+  if(!streams.c2s){ el.innerHTML = '<div class="inspector-empty">Run the handshake to see ISNs and negotiated fields.</div>'; return; }
+  el.innerHTML = `
+    <div class="insp-field"><div class="k">Client ISN</div><div class="v">${state.clientISN}</div></div>
+    <div class="insp-field"><div class="k">Server ISN</div><div class="v">${state.serverISN}</div></div>
+    <div class="insp-field"><div class="k">MSS negotiated</div><div class="v">${state.mss} B</div></div>
+    <div class="insp-field"><div class="k">Window scale</div><div class="v">×64 (demo)</div></div>
+    <div class="insp-field"><div class="k">SACK permitted</div><div class="v">yes</div></div>
+    <div class="insp-field"><div class="k">Timestamps</div><div class="v">enabled</div></div>`;
+}
+
+/* ============================================================
+   RTT / RTO
+   ============================================================ */
+function sampleRtt(ms){
+  state.rttSamples.push(ms);
+  if(state.srtt==null) state.srtt = ms; else state.srtt = 0.875*state.srtt + 0.125*ms;
+  document.getElementById("statRtt").textContent = state.srtt.toFixed(0)+" ms";
+  document.getElementById("pillRtt").textContent = state.srtt.toFixed(0)+" ms";
+}
+function currentRto(){
+  return state.srtt ? Math.max(200, state.srtt*2.2) : 800;
+}
+
+/* ============================================================
+   RECORD PACKET (timeline)
+   ============================================================ */
+function recordPacket(dir, p){
+  const rec = Object.assign({dir, t:nowSec(), status:"sent"}, p);
+  state.packets.unshift(rec);
+  if(state.packets.length>150) state.packets.pop();
+  renderTimeline();
+  return rec;
+}
+function renderTimeline(){
+  const body = document.getElementById("tlBody");
+  body.innerHTML = state.packets.map((p,i)=>{
+    const dirCls = p.dir==="c2s" ? "dir-c2s" : "dir-s2c";
+    const dirLabel = p.dir==="c2s" ? "C→S" : "S→C";
+    let stCls = "st-ok", stLabel = p.status;
+    if(p.status==="lost"){ stCls="st-lost"; stLabel="LOST"; }
+    else if(p.status==="retransmitted"){ stCls="st-retrans"; stLabel="RETRANS"; }
+    return `<tr data-idx="${i}"><td>${p.t}</td><td class="${dirCls}">${dirLabel}</td><td>${p.flags.split(",").map(f=>'<span class="flag-chip">'+f+'</span>').join("")}</td><td>${p.seq!=null?p.seq:"—"}</td><td>${p.ack!=null?p.ack:"—"}</td><td>${p.len}</td><td>${p.win||"—"}</td><td class="${stCls}">${stLabel}</td></tr>`;
+  }).join("");
+  [...body.querySelectorAll("tr")].forEach(tr=>{
+    tr.addEventListener("click", ()=> inspectPacket(state.packets[+tr.dataset.idx]));
+  });
+}
+function inspectPacket(p){
+  selectTab("timeline");
+  const el = document.getElementById("inspector");
+  const srcIsClient = p.dir==="c2s";
+  const srcAddr = srcIsClient ? document.getElementById("clientAddr").textContent : document.getElementById("serverAddr").textContent;
+  const dstAddr = srcIsClient ? document.getElementById("serverAddr").textContent : document.getElementById("clientAddr").textContent;
+  const asciiPayload = p.payload || "";
+  const hexPayload = [...asciiPayload].map(c=>c.charCodeAt(0).toString(16).padStart(2,"0")).join(" ");
+  el.innerHTML = `
+    <div class="insp-layer"><h5>IP</h5><div class="insp-grid">
+      <div class="insp-field"><div class="k">Source</div><div class="v">${srcAddr.split(":")[0]}</div></div>
+      <div class="insp-field"><div class="k">Destination</div><div class="v">${dstAddr.split(":")[0]}</div></div>
+      <div class="insp-field"><div class="k">TTL</div><div class="v">64</div></div>
+      <div class="insp-field"><div class="k">Protocol</div><div class="v">TCP (6)</div></div>
+      <div class="insp-field"><div class="k">Total length</div><div class="v">${20+20+(p.len||0)} B</div></div>
+    </div></div>
+    <div class="insp-layer"><h5>TCP</h5><div class="insp-grid">
+      <div class="insp-field"><div class="k">Src port</div><div class="v">${srcAddr.split(":")[1]||"—"}</div></div>
+      <div class="insp-field"><div class="k">Dst port</div><div class="v">${dstAddr.split(":")[1]||"—"}</div></div>
+      <div class="insp-field"><div class="k">Sequence</div><div class="v">${p.seq!=null?p.seq:"—"}</div></div>
+      <div class="insp-field"><div class="k">Acknowledgement</div><div class="v">${p.ack!=null?p.ack:"—"}</div></div>
+      <div class="insp-field"><div class="k">Flags</div><div class="v">${p.flags}</div></div>
+      <div class="insp-field"><div class="k">Window</div><div class="v">${p.win||"—"}</div></div>
+      <div class="insp-field"><div class="k">Checksum</div><div class="v">0x${(Math.random()*65535|0).toString(16)}</div></div>
+      <div class="insp-field"><div class="k">Data offset</div><div class="v">20 B</div></div>
+    </div></div>
+    <div class="insp-layer"><h5>Payload (${p.len||0} B)</h5>
+      <div class="payload-toggle"><button class="active" data-fmt="ascii">ASCII</button><button data-fmt="hex">HEX</button></div>
+      <div class="payload-view" id="payloadView">${asciiPayload || "(no payload)"}</div>
+    </div>`;
+  el.querySelectorAll(".payload-toggle button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      el.querySelectorAll(".payload-toggle button").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      document.getElementById("payloadView").textContent = b.dataset.fmt==="hex" ? (hexPayload||"(no payload)") : (asciiPayload||"(no payload)");
+    });
+  });
+}
+
+/* ============================================================
+   SEND DATA ENGINE (generic per-stream)
+   ============================================================ */
+function effectiveWindowBytes(stream){
+  const cwndBytes = stream.cwndMss * state.mss;
+  const rwnd = stream.receiverRwnd!=null ? stream.receiverRwnd : stream.bufferCapacity;
+  const inflightBytes = stream.inFlight.reduce((a,s)=> a + (s.acked?0:s.len), 0);
+  return Math.max(0, Math.min(cwndBytes, rwnd) - inflightBytes);
+}
+function receiverRwnd(recvStream){
+  const unread = recvStream.recvExpectedIdx - recvStream.deliveredToApp;
+  return Math.max(0, recvStream.bufferCapacity - unread);
+}
+
+function writeAppData(dir, text){
+  const stream = streams[dir];
+  if(!stream) return;
+  stream.appData += text;
+  pump(dir);
+}
+
+function pump(dir){
+  const stream = streams[dir];
+  if(!stream) return;
+  const recvStream = streams[dir==="c2s"?"s2c":"c2s"]; // for rwnd tracking mirrored on same-direction object below
+  const targetRecv = dir==="c2s" ? recvSideC2S : recvSideS2C;
+  let guard = 0;
+  while(stream.nextToSend < stream.appData.length && guard++ < 50){
+    const ew = effectiveWindowBytes(stream);
+    if(ew <= 0) { maybeStartZeroWindowProbe(dir); return; }
+    const len = Math.min(state.mss, stream.appData.length - stream.nextToSend, ew);
+    if(len<=0) return;
+    transmitSegment(dir, stream.nextToSend, len);
+    stream.nextToSend += len;
+  }
+}
+function maybeStartZeroWindowProbe(dir){
+  const stream = streams[dir];
+  if(stream.zeroWindowProbeTimer) return;
+  logEvent("sys", `Effective window is 0 on ${dir.toUpperCase()} — sender pauses and will probe periodically.`);
+  stream.zeroWindowProbeTimer = setInterval(()=>{
+    const ew = effectiveWindowBytes(stream);
+    logEvent("sys", `Zero-window probe: effective window now ${ew} B.`);
+    if(ew>0){
+      clearInterval(stream.zeroWindowProbeTimer);
+      stream.zeroWindowProbeTimer = null;
+      pump(dir);
+    }
+  }, dur(1400));
+}
+
+let segIdCounter = 1;
+function transmitSegment(dir, startIdx, len){
+  const stream = streams[dir];
+  const seg = { id: segIdCounter++, startIdx, len, seq: stream.base+startIdx, sentAt: performance.now(), acked:false, retransmits:0 };
+  stream.inFlight.push(seg);
+  const payload = stream.appData.substr(startIdx, len);
+  const rec = recordPacket(dir, {flags:"ACK", seq:seg.seq, ack: (streams[dir==="c2s"?"s2c":"c2s"].recvExpectedIdx + streams[dir==="c2s"?"s2c":"c2s"].base), len, win: (dir==="c2s"?receiverRwnd(recvSideS2C):receiverRwnd(recvSideC2S)), payload, kind:"data"});
+  seg.recIdx = 0;
+  logEvent("snd", `${dir==="c2s"?"Client":"Server"} sends <b>SEQ ${seg.seq}</b> len ${len}${seg.retransmits?" (retransmit)":""}`);
+  scheduleRto(dir, seg);
+  spawnAndTravel(dir, {flags:"ACK", seqLabel:"SEQ "+seg.seq, subLabel:"len "+len+"B", len, kind:"data"}).then(res=>{
+    if(res.dropped){ handleLoss(dir, seg, true); return; }
+    if(res.lost){ handleLoss(dir, seg, false); return; }
+    deliverSegment(dir, seg, payload);
+  });
+  renderByteStream(); renderWindow(); updateStats();
+}
+function handleLoss(dir, seg, manual){
+  const idx = state.packets.findIndex(p=> p.seq===seg.seq && p.dir===dir && p.status==="sent");
+  if(idx>-1) state.packets[idx].status = "lost";
+  renderTimeline();
+  logEvent("err", `<b>${manual?"Dropped":"Lost in network"}:</b> SEQ ${seg.seq} (${dir}) never reached the receiver.`);
+}
+function scheduleRto(dir, seg){
+  const stream = streams[dir];
+  const rto = currentRto();
+  seg.rtoHandle = setTimeout(()=>{
+    if(seg.acked) return;
+    // timeout retransmit
+    state.retransCount++;
+    document.getElementById("statRetrans").textContent = state.retransCount;
+    stream.ssthreshMss = Math.max(2, Math.floor(stream.cwndMss/2));
+    stream.cwndMss = 1;
+    stream.phase = "slow-start";
+    logCwnd(stream);
+    logEvent("err", `<b>RTO fired</b> for SEQ ${seg.seq} on ${dir} — retransmitting. cwnd resets to 1 MSS, ssthresh=${stream.ssthreshMss} MSS.`);
+    seg.retransmits++;
+    const payload = stream.appData.substr(seg.startIdx, seg.len);
+    const rec = recordPacket(dir, {flags:"ACK", seq:seg.seq, ack:null, len:seg.len, win:0, payload, kind:"data"});
+    const ridx = state.packets.findIndex(p=>p===rec);
+    scheduleRto(dir, seg);
+    spawnAndTravel(dir, {flags:"ACK", seqLabel:"SEQ "+seg.seq, subLabel:"RETRANSMIT", len:seg.len, kind:"data"}).then(res=>{
+      if(state.packets[ridx]) state.packets[ridx].status="retransmitted";
+      renderTimeline();
+      if(res.dropped || res.lost){ handleLoss(dir, seg, res.dropped); return; }
+      deliverSegment(dir, seg, payload);
+    });
+    updateStats();
+  }, dur(rto));
+}
+function clearRto(seg){ if(seg.rtoHandle){ clearTimeout(seg.rtoHandle); seg.rtoHandle=null; } }
+
+/* receiver-side bookkeeping objects (separate from sender stream for clarity) */
+const recvSideC2S = { recvExpectedIdx:0, recvBuffered:[], deliveredToApp:0, bufferCapacity:6000, get base(){ return streams.c2s ? streams.c2s.base : 0; } };
+const recvSideS2C = { recvExpectedIdx:0, recvBuffered:[], deliveredToApp:0, bufferCapacity:6000, get base(){ return streams.s2c ? streams.s2c.base : 0; } };
+// keep stream objects in sync for rwnd math used in transmitSegment before recv defined; wire real ref:
+function syncRecvRefs(){
+  streams.c2s.recvExpectedIdx = recvSideS2C.recvExpectedIdx; // c2s sender cares about server's recv state
+}
+
+function deliverSegment(dir, seg, payload){
+  const recv = dir==="c2s" ? recvSideS2C : recvSideC2S;
+  const senderStream = streams[dir];
+  const receiverRole = dir==="c2s" ? "server" : "client";
+  flashLayer(receiverRole);
+  const idx = state.packets.findIndex(p=> p.seq===seg.seq && p.dir===dir && (p.status==="sent"||p.status==="retransmitted"));
+
+  const startIdx = seg.startIdx;
+  if(startIdx === recv.recvExpectedIdx){
+    recv.recvExpectedIdx += seg.len;
+    // absorb any buffered contiguous ranges now reachable
+    let progressed = true;
+    while(progressed){
+      progressed = false;
+      recv.recvBuffered = recv.recvBuffered.filter(r=>{
+        if(r.startIdx === recv.recvExpectedIdx){ recv.recvExpectedIdx += r.len; progressed = true; return false; }
+        return true;
+      });
+    }
+    logEvent("rcv", `${receiverRole==="server"?"Server":"Client"} receives SEQ ${seg.seq} in order → contiguous through byte ${recv.recvExpectedIdx}`);
+  } else if(startIdx > recv.recvExpectedIdx){
+    recv.recvBuffered.push({startIdx, len:seg.len});
+    logEvent("rcv", `${receiverRole==="server"?"Server":"Client"} receives SEQ ${seg.seq} <b>out of order</b> — gap before byte ${recv.recvExpectedIdx+ (senderStream.base)} remains.`);
+  } else {
+    logEvent("rcv", `${receiverRole==="server"?"Server":"Client"} receives a <b>duplicate</b> of SEQ ${seg.seq} — discarded.`);
+  }
+
+  // send ACK back
+  const ackNum = senderStream.base + recv.recvExpectedIdx;
+  const revDir = dir==="c2s" ? "s2c" : "c2s";
+  const isDup = recv._lastAck === ackNum;
+  recv._lastAck = ackNum;
+  const win = Math.max(0, recv.bufferCapacity - (recv.recvExpectedIdx - recv.deliveredToApp));
+  recordPacket(revDir, {flags:"ACK", seq: streams[revDir].base + streams[revDir].nextToSend, ack:ackNum, len:0, win, kind:"ack"});
+  logEvent("snd", `${receiverRole==="server"?"Server":"Client"} sends <b>ACK ${ackNum}</b>${isDup?" (duplicate)":""} win=${win}`);
+  spawnAndTravel(revDir, {flags:"ACK", seqLabel:"ACK "+ackNum, subLabel: isDup?"duplicate":"win "+win, len:0, kind:"ack", canLoss:false}).then(()=>{
+    processAck(dir, ackNum, win, isDup, seg.sentAt);
+  });
+}
+
+function processAck(dir, ackNum, advertisedWin, isDup, sentAtForRtt){
+  const stream = streams[dir];
+  const base = stream.base;
+  const ackIdx = ackNum - base;
+  stream.receiverRwnd = advertisedWin;
+
+  if(!isDup && ackIdx > stream.sndUna){
+    // new data acked
+    const rttMs = performance.now() - sentAtForRtt;
+    if(rttMs>0 && rttMs<5000) sampleRtt(rttMs);
+    stream.sndUna = ackIdx;
+    let ackedAnySeg = false;
+    stream.inFlight.forEach(seg=>{
+      if(!seg.acked && (seg.startIdx+seg.len) <= ackIdx){ seg.acked = true; clearRto(seg); ackedAnySeg = true;
+        const idx = state.packets.findIndex(p=> p.seq===seg.seq && p.dir===dir && (p.status==="sent"||p.status==="retransmitted"));
+      }
+    });
+    stream.inFlight = stream.inFlight.filter(seg=> !seg.acked);
+    if(ackedAnySeg){
+      if(stream.phase==="slow-start"){
+        stream.cwndMss += 1;
+        if(stream.cwndMss >= stream.ssthreshMss) stream.phase = "congestion-avoidance";
+      } else {
+        stream.cwndMss += 1/Math.max(1,stream.cwndMss);
+      }
+      logCwnd(stream);
+    }
+    stream.dupAckCount = 0;
+    pump(dir);
+  } else if(isDup){
+    stream.dupAckCount++;
+    if(stream.dupAckCount===3){
+      const lost = stream.inFlight.find(s=> !s.acked && s.startIdx===stream.sndUna);
+      stream.ssthreshMss = Math.max(2, Math.floor(stream.cwndMss/2));
+      stream.cwndMss = stream.ssthreshMss;
+      stream.phase = "congestion-avoidance";
+      logCwnd(stream);
+      logEvent("err", `<b>3 duplicate ACKs</b> on ${dir} → <b>fast retransmit</b>. ssthresh=${stream.ssthreshMss} MSS, cwnd jumps to ${stream.cwndMss} MSS.`);
+      if(lost){
+        clearRto(lost);
+        const payload = stream.appData.substr(lost.startIdx, lost.len);
+        lost.retransmits++;
+        const rec = recordPacket(dir, {flags:"ACK", seq:lost.seq, ack:null, len:lost.len, win:0, payload, kind:"data"});
+        const ridx = state.packets.indexOf(rec);
+        scheduleRto(dir, lost);
+        spawnAndTravel(dir, {flags:"ACK", seqLabel:"SEQ "+lost.seq, subLabel:"FAST RETRANSMIT", len:lost.len, kind:"data"}).then(res=>{
+          if(state.packets[ridx]) state.packets[ridx].status="retransmitted";
+          renderTimeline();
+          if(res.dropped||res.lost){ handleLoss(dir, lost, res.dropped); return; }
+          deliverSegment(dir, lost, payload);
+        });
+      }
+      stream.dupAckCount = 0;
+    }
+  }
+  renderByteStream(); renderWindow(); updateStats();
+}
+
+function logCwnd(stream){
+  state.cwndHistory.push({t: state.cwndHistory.length, cwnd: stream.cwndMss, ssthresh: stream.ssthreshMss});
+  if(state.cwndHistory.length>40) state.cwndHistory.shift();
+  drawCwndChart();
+  document.getElementById("phaseLabel").textContent = stream.phase;
+}
+
+/* ============================================================
+   RENDER: byte stream, window bar
+   ============================================================ */
+function renderByteStream(){
+  const stream = streams.c2s;
+  const el = document.getElementById("bytestreamC2S");
+  const readout = document.getElementById("seqAckReadoutC2S");
+  if(!stream || !stream.appData){ el.innerHTML = '<span style="color:var(--ink-faint);font-size:11.5px;">No data sent yet — use the composer above.</span>'; readout.innerHTML=""; return; }
+  let html = "";
+  for(let i=0;i<stream.appData.length;i++){
+    let cls = "unsent";
+    if(i < stream.sndUna) cls = "acked";
+    else if(i < stream.nextToSend) cls = "inflight";
+    const boundary = (i % state.mss === 0) ? " seg-boundary" : "";
+    html += `<span class="byte ${cls}${boundary}" title="seq ${stream.base+i}">${escapeHtml(stream.appData[i])}</span>`;
+  }
+  el.innerHTML = html;
+  readout.innerHTML = `
+    <div class="insp-field"><div class="k">Client next SEQ</div><div class="v">${stream.base+stream.nextToSend}</div></div>
+    <div class="insp-field"><div class="k">Client SND.UNA</div><div class="v">${stream.base+stream.sndUna}</div></div>
+    <div class="insp-field"><div class="k">Server ACK expects</div><div class="v">${stream.base+recvSideS2C.recvExpectedIdx}</div></div>
+    <div class="insp-field"><div class="k">Bytes acked</div><div class="v">${stream.sndUna} / ${stream.appData.length}</div></div>`;
+}
+function escapeHtml(c){ return c==="<"?"&lt;":c===">"?"&gt;":c===" "?"·":c; }
+
+function renderWindow(){
+  const stream = streams.c2s;
+  const bar = document.getElementById("windowBar");
+  if(!stream || !stream.appData){ bar.innerHTML=""; return; }
+  const total = stream.appData.length;
+  const acked = stream.sndUna;
+  const inflightBytes = stream.inFlight.reduce((a,s)=>a+(s.acked?0:s.len),0);
+  const cwndBytes = stream.cwndMss*state.mss;
+  const rwnd = stream.receiverRwnd!=null ? stream.receiverRwnd : stream.bufferCapacity;
+  const win = Math.min(cwndBytes, rwnd);
+  const sendable = Math.max(0, Math.min(win - inflightBytes, total - acked - inflightBytes));
+  const unavailable = Math.max(0, total - acked - inflightBytes - sendable);
+  const segs = [
+    {cls:"acked", w:acked, label: acked>0? acked+"B acked":""},
+    {cls:"inflight", w:inflightBytes, label: inflightBytes>0? inflightBytes+"B flight":""},
+    {cls:"sendable", w:sendable, label: sendable>0? sendable+"B ready":""},
+    {cls:"unavailable", w:unavailable, label:""}
+  ];
+  const sum = segs.reduce((a,s)=>a+s.w,0) || 1;
+  bar.innerHTML = segs.filter(s=>s.w>0).map(s=> `<div class="window-seg ${s.cls}" style="width:${(s.w/sum*100).toFixed(2)}%">${s.label}</div>`).join("");
+  document.getElementById("wCwnd").textContent = stream.cwndMss.toFixed(1)+" MSS ("+cwndBytes.toFixed(0)+" B)";
+  document.getElementById("wRwnd").textContent = rwnd+" B";
+  document.getElementById("wInflight").textContent = inflightBytes+" B";
+  document.getElementById("wEffective").textContent = Math.max(0, win-inflightBytes)+" B";
+}
+
+/* ============================================================
+   CWND CHART
+   ============================================================ */
+function drawCwndChart(){
+  const svg = document.getElementById("cwndChart");
+  const W=480, H=180, pad=24;
+  const hist = state.cwndHistory;
+  if(!hist.length){ svg.innerHTML=""; return; }
+  const maxV = Math.max(10, ...hist.map(h=>Math.max(h.cwnd,h.ssthresh)));
+  const xStep = hist.length>1 ? (W-2*pad)/(hist.length-1) : 0;
+  function xy(i,v){ return [pad + i*xStep, H-pad - (v/maxV)*(H-2*pad)]; }
+  const cwndPts = hist.map((h,i)=> xy(i,h.cwnd).join(",")).join(" ");
+  const sstPts = hist.map((h,i)=> xy(i,h.ssthresh).join(",")).join(" ");
+  svg.innerHTML = `
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#dde5ee" stroke-width="1"/>
+    <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="#dde5ee" stroke-width="1"/>
+    <polyline points="${sstPts}" fill="none" stroke="#e14a4a" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <polyline points="${cwndPts}" fill="none" stroke="#2f6fed" stroke-width="2"/>
+    ${hist.map((h,i)=>{const [x,y]=xy(i,h.cwnd); return `<circle cx="${x}" cy="${y}" r="2.4" fill="#2f6fed"/>`;}).join("")}
+  `;
+}
+
+/* ============================================================
+   STATS
+   ============================================================ */
+function updateStats(){
+  const stream = streams.c2s;
+  if(stream){
+    document.getElementById("statCwnd").textContent = stream.cwndMss.toFixed(1)+" MSS";
+    const inflightBytes = stream.inFlight.reduce((a,s)=>a+(s.acked?0:s.len),0);
+    document.getElementById("statInflight").textContent = inflightBytes+" B";
+    document.getElementById("bdpInflight").textContent = inflightBytes+" B";
+  }
+  const rttMs = state.srtt || (state.net.latency*2);
+  const bw = state.net.bwMbps;
+  const bdpBytes = (bw*1e6/8) * (rttMs/1000);
+  document.getElementById("bdpBw").textContent = bw+" Mbps";
+  document.getElementById("bdpRtt").textContent = rttMs.toFixed(0)+" ms";
+  document.getElementById("bdpVal").textContent = (bdpBytes/1000).toFixed(1)+" KB";
+  const delivered = stream ? stream.sndUna : 0;
+  const elapsed = Math.max(0.3, (Date.now()-state.timeStart)/1000);
+  const kbps = (delivered*8/1000)/elapsed*4; // rough visual figure
+  document.getElementById("statThroughput").textContent = kbps.toFixed(1)+" kbps";
+}
+
+/* ============================================================
+   COMPOSER WIRES
+   ============================================================ */
+document.getElementById("btnSend").addEventListener("click", ()=>{
+  if(state.clientState!=="ESTABLISHED"){ logEvent("err","Run the handshake before sending data."); return; }
+  const text = document.getElementById("inpData").value || "data";
+  writeAppData("c2s", text);
+});
+document.getElementById("btnSendReply").addEventListener("click", ()=>{
+  if(state.serverState!=="ESTABLISHED"){ logEvent("err","Connection must be established first."); return; }
+  writeAppData("s2c", "Hello Client, this is the servers reply message.");
+});
+document.getElementById("inpMss").addEventListener("change", (e)=>{
+  state.mss = Math.max(6, +e.target.value||20);
+  renderByteStream();
+});
+
+document.getElementById("btnWrongPort").addEventListener("click", async ()=>{
+  logEvent("snd", `Client attempts <b>SYN</b> to a port with no listener.`);
+  const isn = randISN();
+  recordPacket("c2s", {flags:"SYN", seq:isn, ack:null, len:0, win:8*state.mss, kind:"ctl"});
+  await spawnAndTravel("c2s", {flags:"SYN", seqLabel:"SEQ "+isn, subLabel:"port closed", len:0, kind:"ctl", canLoss:false});
+  logEvent("err", `Server immediately replies <b>RST</b> — connection refused.`);
+  recordPacket("s2c", {flags:"RST", seq:0, ack:isn+1, len:0, win:0, kind:"ctl"});
+  await spawnAndTravel("s2c", {flags:"RST", seqLabel:"RST", subLabel:"connection refused", len:0, kind:"ctl", canLoss:false});
+});
+
+document.getElementById("btnFin").addEventListener("click", ()=> runGracefulClose());
+document.getElementById("btnRst").addEventListener("click", ()=> runReset());
+
+async function runGracefulClose(){
+  if(state.clientState!=="ESTABLISHED"){ logEvent("err","No established connection to close."); return; }
+  setClientState("FIN-WAIT-1");
+  const stream = streams.c2s;
+  const seq = stream.base+stream.appData.length;
+  logEvent("snd", `Client sends <b>FIN</b> — no more data to send from client.`);
+  recordPacket("c2s", {flags:"FIN,ACK", seq, ack:streams.s2c.base+recvSideC2S.recvExpectedIdx, len:0, win:6000, kind:"ctl"});
+  await spawnAndTravel("c2s", {flags:"FIN,ACK", seqLabel:"FIN seq "+seq, subLabel:"client done sending", len:0, kind:"ctl", canLoss:false});
+  setServerState("CLOSE-WAIT");
+  logEvent("sys", `Server enters <b>CLOSE-WAIT</b> — it can still send data (half-close).`);
+  recordPacket("s2c", {flags:"ACK", seq:streams.s2c.base+streams.s2c.appData.length, ack:seq+1, len:0, win:6000, kind:"ack"});
+  await spawnAndTravel("s2c", {flags:"ACK", seqLabel:"ACK "+(seq+1), subLabel:"", len:0, kind:"ack", canLoss:false});
+  setClientState("FIN-WAIT-2");
+
+  await new Promise(r=> setTimeout(r, dur(400)));
+  logEvent("snd", `Server finishes and sends its own <b>FIN</b>.`);
+  setServerState("LAST-ACK");
+  const sseq = streams.s2c.base+streams.s2c.appData.length;
+  recordPacket("s2c", {flags:"FIN,ACK", seq:sseq, ack:seq+1, len:0, win:6000, kind:"ctl"});
+  await spawnAndTravel("s2c", {flags:"FIN,ACK", seqLabel:"FIN seq "+sseq, subLabel:"server done sending", len:0, kind:"ctl", canLoss:false});
+  logEvent("snd", `Client sends final <b>ACK</b> and enters <b>TIME-WAIT</b>.`);
+  recordPacket("c2s", {flags:"ACK", seq:seq+1, ack:sseq+1, len:0, win:6000, kind:"ack"});
+  await spawnAndTravel("c2s", {flags:"ACK", seqLabel:"ACK "+(sseq+1), subLabel:"", len:0, kind:"ack", canLoss:false});
+  setClientState("TIME-WAIT");
+  setServerState("CLOSED");
+  markSocket("server",6,true);
+  logEvent("sys", `Server socket <b>CLOSED</b>. Client waits in TIME-WAIT before fully discarding state.`);
+  setTimeout(()=>{ setClientState("CLOSED"); markSocket("client",4,true); logEvent("sys","Client TIME-WAIT elapsed — connection fully closed."); }, dur(2200));
+}
+async function runReset(){
+  if(state.clientState==="CLOSED"){ logEvent("err","No active connection to reset."); return; }
+  logEvent("err", `Client sends <b>RST</b> — aborting the connection immediately.`);
+  const stream = streams.c2s;
+  recordPacket("c2s", {flags:"RST", seq: stream? stream.base+stream.appData.length:0, ack:null, len:0, win:0, kind:"ctl"});
+  await spawnAndTravel("c2s", {flags:"RST", seqLabel:"RST", subLabel:"abort", len:0, kind:"ctl", canLoss:false});
+  setClientState("CLOSED"); setServerState("CLOSED");
+  logEvent("sys", `Both sides drop connection state immediately — no graceful FIN exchange, no TIME-WAIT.`);
+}
+
+/* ============================================================
+   RESTART
+   ============================================================ */
+document.getElementById("btnRestart").addEventListener("click", ()=>{
+  streams = {c2s:null, s2c:null};
+  state.clientISN=0; state.serverISN=0; state.srtt=null; state.rttSamples=[];
+  state.retransCount=0; state.log=[]; state.packets=[]; state.cwndHistory=[];
+  state.socketDoneClient=0; state.socketDoneServer=0; state._clientSeen=new Set(); state._serverSeen=new Set();
+  state.timeStart = Date.now();
+  document.getElementById("logPanel").innerHTML=""; document.getElementById("logCount").textContent="0 events";
+  document.getElementById("tlBody").innerHTML="";
+  document.getElementById("inspector").innerHTML = '<div class="inspector-empty">Select a packet from the timeline, or click one travelling through the network above.</div>';
+  document.getElementById("statRtt").textContent="—"; document.getElementById("pillRtt").textContent="—";
+  document.getElementById("statCwnd").textContent="1 MSS"; document.getElementById("statInflight").textContent="0 B";
+  document.getElementById("statThroughput").textContent="0 kbps"; document.getElementById("statRetrans").textContent="0";
+  setClientState("CLOSED"); setServerState("LISTEN");
+  renderSocketSeq(); renderByteStream(); renderWindow(); drawCwndChart(); renderHandshakeFields();
+  logEvent("sys","Simulation restarted. Fresh sockets, fresh ISNs.");
+});
+
+/* ============================================================
+   SPEED
+   ============================================================ */
+const speedRange = document.getElementById("speedRange");
+speedRange.addEventListener("input", ()=>{
+  state.speed = +speedRange.value;
+  document.getElementById("speedVal").textContent = state.speed.toFixed(1)+"×";
+  document.documentElement.style.setProperty("--dur", state.speed);
+});
+
+/* ============================================================
+   MODE SWITCH
+   ============================================================ */
+function setMode(m){
+  state.mode = m;
+  document.body.classList.toggle("engineer", m==="engineer");
+  document.body.classList.toggle("beginner", m==="beginner");
+  document.getElementById("modeBeginner").classList.toggle("active", m==="beginner");
+  document.getElementById("modeEngineer").classList.toggle("active", m==="engineer");
+  if(m==="beginner"){
+    const activeTab = document.querySelector(".tab-btn.active");
+    if(activeTab && activeTab.classList.contains("eng")) selectTab("handshake");
+  }
+}
+document.getElementById("modeBeginner").addEventListener("click", ()=> setMode("beginner"));
+document.getElementById("modeEngineer").addEventListener("click", ()=> setMode("engineer"));
+
+/* ============================================================
+   TABS
+   ============================================================ */
+function selectTab(key){
+  document.querySelectorAll(".tab-btn").forEach(b=> b.classList.toggle("active", b.dataset.tab===key));
+  document.querySelectorAll(".tab-panel").forEach(p=> p.classList.toggle("active", p.id==="tab-"+key));
+}
+document.getElementById("tabBar").addEventListener("click", e=>{
+  const b = e.target.closest(".tab-btn"); if(!b) return;
+  selectTab(b.dataset.tab);
+});
+
+/* ============================================================
+   NETWORK CONDITIONS
+   ============================================================ */
+function applyNetLabels(){
+  document.getElementById("latVal").textContent = state.net.latency+"ms";
+  document.getElementById("jitVal").textContent = state.net.jitter+"ms";
+  document.getElementById("lossVal").textContent = state.net.loss+"%";
+  document.getElementById("condLatency").textContent = "latency "+state.net.latency+"ms";
+  document.getElementById("condLoss").textContent = "loss "+state.net.loss+"%";
+  document.getElementById("condBw").textContent = "bandwidth "+state.net.bwMbps+" Mbps";
+  document.getElementById("routerA").classList.toggle("congested", state.net.loss>15);
+  document.getElementById("routerB").classList.toggle("congested", state.net.loss>15);
+  updateStats();
+}
+document.getElementById("latRange").addEventListener("input", e=>{ state.net.latency = +e.target.value; applyNetLabels(); });
+document.getElementById("jitRange").addEventListener("input", e=>{ state.net.jitter = +e.target.value; applyNetLabels(); });
+document.getElementById("lossRange").addEventListener("input", e=>{ state.net.loss = +e.target.value; applyNetLabels(); });
+document.getElementById("bwSelect").addEventListener("change", e=>{ state.net.bwMbps = +e.target.value; applyNetLabels(); });
+document.getElementById("netPreset").addEventListener("change", e=>{
+  const presets = {
+    lan:{latency:2, jitter:1, loss:0, bwMbps:100},
+    mobile:{latency:60, jitter:35, loss:2, bwMbps:10},
+    sat:{latency:320, jitter:15, loss:1, bwMbps:5},
+    congested:{latency:90, jitter:60, loss:12, bwMbps:2},
+  };
+  const p = presets[e.target.value];
+  if(!p) return;
+  state.net = {...p};
+  document.getElementById("latRange").value = p.latency;
+  document.getElementById("jitRange").value = p.jitter;
+  document.getElementById("lossRange").value = p.loss;
+  document.getElementById("bwSelect").value = String(p.bwMbps);
+  applyNetLabels();
+});
+applyNetLabels();
+
+/* ============================================================
+   ZERO WINDOW / APP READ (engineer demo)
+   ============================================================ */
+document.getElementById("btnAppRead").addEventListener("click", ()=>{
+  recvSideS2C.deliveredToApp = Math.min(recvSideS2C.recvExpectedIdx, recvSideS2C.deliveredToApp+40);
+  logEvent("sys", `Server application reads 40 bytes from its receive buffer — window opens back up.`);
+  renderWindow();
+  if(streams.c2s) pump("c2s");
+});
+
+/* ============================================================
+   SCENARIOS
+   ============================================================ */
+document.querySelectorAll("[data-scn]").forEach(btn=>{
+  btn.addEventListener("click", ()=> runScenario(btn.dataset.scn));
+});
+async function runScenario(name){
+  document.getElementById("btnRestart").click();
+  await new Promise(r=>setTimeout(r, dur(150)));
+  if(name==="normal"){
+    await runHandshake(); await new Promise(r=>setTimeout(r,dur(300)));
+    writeAppData("c2s","Plain and simple data transfer.");
+    await new Promise(r=>setTimeout(r,dur(1800)));
+    runGracefulClose();
+  } else if(name==="loss"){
+    state.net.loss=100; applyNetLabels();
+    await runHandshake();
+    state.net.loss=0; applyNetLabels();
+    await new Promise(r=>setTimeout(r,dur(200)));
+    document.getElementById("inpData").value = "This message spans multiple segments to show a lost one.";
+    document.getElementById("btnSend").click();
+    setTimeout(()=>{ state.net.loss=0; }, dur(50));
+  } else if(name==="latency"){
+    document.getElementById("netPreset").value="sat";
+    document.getElementById("netPreset").dispatchEvent(new Event("change"));
+    await runHandshake();
+    writeAppData("c2s","Hello across a very slow path.");
+  } else if(name==="reorder"){
+    state.net.jitter=90; applyNetLabels();
+    await runHandshake();
+    document.getElementById("inpMss").value=10; state.mss=10;
+    writeAppData("c2s","Reordering demo payload text.");
+  } else if(name==="slowrecv"){
+    await runHandshake();
+    recvSideS2C.bufferCapacity = 60;
+    writeAppData("c2s","This sender will outrun a very small receive buffer quickly.");
+  } else if(name==="congestion"){
+    state.net.loss=25; applyNetLabels();
+    await runHandshake();
+    writeAppData("c2s","Congested path causing repeated cwnd collapse during transfer.");
+  } else if(name==="wrongport"){
+    document.getElementById("btnWrongPort").click();
+  } else if(name==="reset"){
+    await runHandshake();
+    await new Promise(r=>setTimeout(r,dur(300)));
+    runReset();
+  } else if(name==="zerowindow"){
+    await runHandshake();
+    recvSideS2C.bufferCapacity = 30;
+    writeAppData("c2s","Zero window demonstration where the buffer fills almost immediately.");
+  } else if(name==="close"){
+    await runHandshake();
+    await new Promise(r=>setTimeout(r,dur(300)));
+    runGracefulClose();
+  }
+}
+
+/* ============================================================
+   PACKET CLICK IN NETWORK -> also let a live packet element be inspectable
+   (handled inline via click-to-drop; general packet inspection is via timeline)
+   ============================================================ */
+
+/* ============================================================
+   INIT / AUTOMATIC FIRST DEMO
+   ============================================================ */
+renderByteStream(); renderWindow(); drawCwndChart(); renderHandshakeFields();
+logEvent("sys", "Lab initialized. Running the automatic first demo…");
+
+async function firstDemo(){
+  await new Promise(r=>setTimeout(r, dur(400)));
+  await runHandshake();
+  await new Promise(r=>setTimeout(r, dur(500)));
+  writeAppData("c2s", "Hello TCP");
+  await new Promise(r=>setTimeout(r, dur(2200)));
+  writeAppData("s2c", "Hello Client");
+  await new Promise(r=>setTimeout(r, dur(2200)));
+  runGracefulClose();
+}
+firstDemo();
+
+window.addEventListener("resize", ()=>{ /* positions recomputed on next packet spawn */ });
+
+})();
+</script>
+</body>
+</html>

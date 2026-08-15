@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAN Interactive Lab</title>
+<style>
+:root{
+  --bg:#0a0e13;
+  --panel:#111720;
+  --panel2:#161e29;
+  --panel3:#1b2430;
+  --border:#243040;
+  --border-soft:#1c2531;
+  --text:#dde6ef;
+  --text-dim:#8496a8;
+  --text-faint:#54697d;
+  --mono: 'SF Mono','JetBrains Mono',Consolas,'Courier New',monospace;
+  --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+
+  --blue:#4f8fdb;      /* normal traffic */
+  --orange:#e08a2e;    /* active frame */
+  --green:#3fae74;     /* ack / success */
+  --red:#e2483f;       /* error */
+  --yellow:#dbb93f;    /* arbitration */
+  --recessive:#3a4a5c; /* recessive / idle */
+  --dominant:#e2483f;  /* dominant marker accent, used sparingly */
+  --purple:#9b7fd4;    /* CAN FD data phase */
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+body{-webkit-font-smoothing:antialiased;}
+::selection{background:#2c4a63;}
+
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#26313f;border-radius:5px;}
+
+a{color:var(--blue);}
+
+.wrap{max-width:1440px;margin:0 auto;padding:0 20px 80px;}
+
+/* ---------- Header ---------- */
+header.top{
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#0d1319,#0a0e13);
+  padding:16px 20px;
+  position:sticky;top:0;z-index:50;
+  backdrop-filter:blur(6px);
+}
+.top-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;}
+.brand-mark{width:30px;height:30px;flex:none;}
+.brand-text{display:flex;flex-direction:column;line-height:1.15;}
+.brand-text b{font-size:15px;letter-spacing:.02em;font-weight:700;}
+.brand-text span{font-size:10.5px;color:var(--text-faint);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono);}
+
+.seg{display:flex;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:2px;}
+.seg button{
+  background:transparent;border:none;color:var(--text-dim);font-family:var(--mono);
+  font-size:11px;letter-spacing:.04em;padding:6px 12px;border-radius:6px;cursor:pointer;
+  transition:.15s;
+}
+.seg button.active{background:var(--panel3);color:var(--text);box-shadow:inset 0 0 0 1px var(--border);}
+.seg button:hover:not(.active){color:var(--text);}
+
+select.rate{
+  background:var(--panel2);border:1px solid var(--border);color:var(--text);
+  font-family:var(--mono);font-size:11px;padding:7px 10px;border-radius:8px;cursor:pointer;
+}
+
+/* ---------- Layout ---------- */
+.grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-top:18px;align-items:start;}
+@media (max-width:980px){.grid{grid-template-columns:1fr;}}
+
+.col-main{display:flex;flex-direction:column;gap:16px;min-width:0;}
+.col-side{position:sticky;top:82px;display:flex;flex-direction:column;gap:16px;}
+@media (max-width:980px){.col-side{position:static;}}
+
+.panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:16px 18px 18px;
+}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.panel-head h2{font-size:13px;margin:0;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--text);}
+.panel-head .eyebrow{font-family:var(--mono);font-size:10px;color:var(--text-faint);letter-spacing:.06em;}
+.panel-sub{font-size:12px;color:var(--text-dim);margin:-8px 0 12px;line-height:1.5;}
+
+.badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:5px;letter-spacing:.03em;border:1px solid var(--border);color:var(--text-dim);}
+.badge.blue{color:var(--blue);border-color:#2a4josh;}
+.badge.blue{color:var(--blue);border-color:#274361;background:#101c28;}
+.badge.orange{color:var(--orange);border-color:#4a3315;background:#1d1509;}
+.badge.green{color:var(--green);border-color:#1f4530;background:#0e1c14;}
+.badge.red{color:var(--red);border-color:#4a2019;background:#1e0f0c;}
+.badge.yellow{color:var(--yellow);border-color:#463b16;background:#1c1808;}
+
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;}
+button.btn{
+  font-family:var(--mono);font-size:11.5px;letter-spacing:.02em;
+  background:var(--panel3);color:var(--text);border:1px solid var(--border);
+  padding:8px 12px;border-radius:7px;cursor:pointer;transition:.15s;
+}
+button.btn:hover{border-color:#3a4a5c;background:#1e2836;}
+button.btn.primary{background:#1a2c1f;border-color:#2b5138;color:#7bd9a0;}
+button.btn.primary:hover{background:#1e3324;}
+button.btn.warn{background:#241512;border-color:#4a2019;color:#f0958c;}
+button.btn.warn:hover{background:#2c1815;}
+button.btn.small{padding:5px 9px;font-size:10.5px;}
+button.btn:disabled{opacity:.35;cursor:not-allowed;}
+button.btn.active{outline:1px solid var(--yellow);}
+
+input[type=text], input[type=number]{
+  background:var(--panel3);border:1px solid var(--border);color:var(--text);
+  font-family:var(--mono);font-size:12px;padding:7px 9px;border-radius:6px;width:100%;
+}
+label.field{display:flex;flex-direction:column;gap:4px;font-size:10.5px;color:var(--text-faint);letter-spacing:.04em;text-transform:uppercase;}
+
+/* ---------- Topology ---------- */
+.topo-scroll{overflow-x:auto;}
+svg.topo{display:block;min-width:640px;width:100%;height:auto;}
+.ecu-box{cursor:pointer;}
+.ecu-box rect.body{fill:#141c26;stroke:#2a3648;stroke-width:1;}
+.ecu-box:hover rect.body{stroke:#4f8fdb;}
+.ecu-label{font-family:var(--mono);font-size:10px;fill:var(--text);}
+.ecu-sub{font-family:var(--mono);font-size:8.5px;fill:var(--text-faint);}
+.busline{stroke-linecap:round;}
+.clickable{cursor:pointer;}
+.clickable:hover{opacity:.85;}
+
+/* status strip */
+.statusbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.stat{
+  flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--border-soft);
+  border-radius:9px;padding:10px 12px;
+}
+.stat .k{font-family:var(--mono);font-size:9.5px;color:var(--text-faint);letter-spacing:.06em;text-transform:uppercase;}
+.stat .v{font-family:var(--mono);font-size:17px;margin-top:3px;font-weight:600;}
+.stat .v.dom{color:var(--red);}
+.stat .v.rec{color:var(--text-dim);}
+.stat .v.idle{color:var(--text-faint);}
+
+/* ---------- Arbitration ---------- */
+.arb-selectors{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.arb-node{flex:1;min-width:180px;background:var(--panel2);border:1px solid var(--border-soft);border-radius:9px;padding:10px 12px;}
+.arb-node .name{font-size:12px;font-weight:600;}
+.arb-node .id{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:2px;}
+
+table.bittable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;}
+table.bittable th{text-align:center;color:var(--text-faint);font-weight:500;padding:5px 4px;border-bottom:1px solid var(--border);font-size:10px;letter-spacing:.05em;text-transform:uppercase;}
+table.bittable td{text-align:center;padding:5px 4px;border-bottom:1px solid #161e29;}
+.bit-cell{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;font-weight:600;}
+.bit-cell.dom{background:#2a1210;color:var(--red);}
+.bit-cell.rec{background:#111a24;color:var(--text-dim);border:1px solid #24303e;}
+.row-lost{opacity:.35;}
+.row-current{background:#151d2a;}
+.tag-lost{color:var(--red);font-weight:700;}
+.tag-win{color:var(--green);font-weight:700;}
+
+/* ---------- Frame viewer ---------- */
+.frame-fields{display:flex;flex-wrap:wrap;gap:5px;margin:12px 0;}
+.ffield{
+  font-family:var(--mono);font-size:10.5px;padding:8px 9px;border-radius:7px;
+  background:var(--panel2);border:1px solid var(--border-soft);cursor:pointer;
+  display:flex;flex-direction:column;gap:2px;min-width:52px;text-align:center;transition:.15s;
+}
+.ffield .fn{color:var(--text-faint);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;}
+.ffield .fv{color:var(--text);font-size:12px;}
+.ffield.active{border-color:var(--orange);background:#1d1509;}
+.ffield.active .fv{color:var(--orange);}
+
+.bitstream{
+  font-family:var(--mono);font-size:13px;line-height:2.1;word-break:break-all;
+  background:var(--panel2);border:1px solid var(--border-soft);border-radius:9px;padding:12px;
+  margin-top:10px;
+}
+.bstamp{display:inline-block;width:15px;height:20px;text-align:center;border-radius:3px;margin:1px;position:relative;}
+.bstamp.b0{background:#2a1210;color:var(--red);}
+.bstamp.b1{background:#111a24;color:var(--text-dim);}
+.bstamp.stuffed{outline:2px solid var(--yellow);outline-offset:1px;}
+.bstamp.current{outline:2px solid #fff;outline-offset:1px;}
+
+.scope-wrap canvas{width:100%;height:170px;display:block;background:#0c1119;border:1px solid var(--border-soft);border-radius:9px;}
+
+/* ---------- Error lab ---------- */
+.errgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+.node-state-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;background:var(--panel2);border:1px solid var(--border-soft);border-radius:8px;margin-bottom:6px;}
+.node-state-row .n{font-size:12px;font-weight:600;}
+.node-state-row .ctr{font-family:var(--mono);font-size:10.5px;color:var(--text-dim);}
+.pill{font-family:var(--mono);font-size:9.5px;padding:3px 8px;border-radius:20px;letter-spacing:.04em;}
+.pill.active{background:#0e1c14;color:var(--green);border:1px solid #1f4530;}
+.pill.passive{background:#1c1808;color:var(--yellow);border:1px solid #463b16;}
+.pill.busoff{background:#1e0f0c;color:var(--red);border:1px solid #4a2019;}
+.ctr-bar{height:5px;border-radius:3px;background:#0e141c;overflow:hidden;width:70px;margin-top:3px;}
+.ctr-bar i{display:block;height:100%;background:var(--yellow);}
+
+/* ---------- Trace table ---------- */
+.trace-scroll{max-height:280px;overflow-y:auto;border:1px solid var(--border-soft);border-radius:9px;}
+table.trace{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+table.trace thead th{position:sticky;top:0;background:#141b25;color:var(--text-faint);text-align:left;padding:7px 9px;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+table.trace tbody td{padding:6px 9px;border-bottom:1px solid #131a23;color:var(--text-dim);}
+table.trace tbody tr{cursor:pointer;}
+table.trace tbody tr:hover{background:#131b25;}
+table.trace tbody tr.err td{color:var(--red);}
+.dir-tx{color:var(--blue);}
+.dir-rx{color:var(--green);}
+
+/* ---------- Explain panel ---------- */
+.explain{min-height:120px;}
+.explain h3{font-size:13px;margin:0 0 6px;color:var(--orange);}
+.explain p{font-size:12.5px;line-height:1.65;color:var(--text-dim);margin:0 0 8px;}
+.explain .placeholder{color:var(--text-faint);font-size:12px;font-style:italic;}
+.explain .deep{margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);}
+
+.log{font-family:var(--mono);font-size:11px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:0;}
+.log div{padding:4px 0;border-bottom:1px solid #141b24;color:var(--text-dim);}
+.log div b{color:var(--text);}
+.log div.ev-err{color:var(--red);}
+.log div.ev-arb{color:var(--yellow);}
+.log div.ev-ack{color:var(--green);}
+
+.storyline{font-size:12.5px;color:var(--text-dim);line-height:1.7;background:var(--panel2);border:1px solid var(--border-soft);border-radius:9px;padding:12px 14px;margin-top:10px;}
+.storyline b{color:var(--text);}
+
+.small-note{font-size:11px;color:var(--text-faint);margin-top:8px;line-height:1.5;}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10.5px;color:var(--text-dim);margin-top:10px;}
+.legend span{display:inline-flex;align-items:center;gap:5px;}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+.engineer-only{display:none;}
+body.mode-engineer .engineer-only{display:block;}
+body.mode-engineer .engineer-only.inline{display:inline-flex;}
+
+.hidden{display:none !important;}
+
+.tabs{display:flex;gap:4px;margin-bottom:12px;border-bottom:1px solid var(--border-soft);}
+.tabs button{background:transparent;border:none;color:var(--text-faint);font-family:var(--mono);font-size:11px;padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;}
+.tabs button.active{color:var(--text);border-bottom-color:var(--orange);}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media (max-width:640px){.two-col{grid-template-columns:1fr;}}
+
+.filter-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:end;}
+.filter-row label.field{min-width:100px;}
+
+footer.credit{max-width:1440px;margin:30px auto 0;padding:0 20px;color:var(--text-faint);font-size:11px;text-align:center;}
+</style>
+</head>
+<body class="mode-beginner">
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 30 30"><rect x="1" y="9" width="28" height="12" rx="2" fill="none" stroke="#4f8fdb" stroke-width="1.4"/><line x1="1" y1="12" x2="29" y2="12" stroke="#e2483f" stroke-width="1.4"/><line x1="1" y1="18" x2="29" y2="18" stroke="#dbe4ef" stroke-width="1.4" opacity=".5"/><circle cx="7" cy="15" r="1.6" fill="#dbb93f"/><circle cx="15" cy="15" r="1.6" fill="#dbb93f"/><circle cx="23" cy="15" r="1.6" fill="#dbb93f"/></svg>
+      <div class="brand-text"><b>CAN Interactive Lab</b><span>Controller Area Network &middot; Bus Simulator</span></div>
+    </div>
+
+    <div class="seg" id="modeToggle">
+      <button data-mode="beginner" class="active">Beginner</button>
+      <button data-mode="engineer">Engineer</button>
+    </div>
+    <div class="seg" id="fdToggle">
+      <button data-fd="classical" class="active">Classical CAN</button>
+      <button data-fd="fd">CAN FD</button>
+    </div>
+    <select class="rate" id="rateSelect">
+      <option value="125">125 kbit/s</option>
+      <option value="250">250 kbit/s</option>
+      <option value="500" selected>500 kbit/s</option>
+      <option value="1000">1 Mbit/s</option>
+    </select>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="grid">
+    <div class="col-main">
+
+      <!-- ===================== TOPOLOGY ===================== -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2>CAN Network &mdash; Shared Bus Topology</h2>
+          <span class="eyebrow" id="topoStamp">5 nodes &middot; 120&Omega; terminated</span>
+        </div>
+        <p class="panel-sub">Every ECU taps into the <b>same</b> two-wire bus. Click an ECU, a transceiver, the bus wires, or a termination resistor to learn what it does.</p>
+        <div class="topo-scroll"><svg class="topo" id="topoSvg" viewBox="0 0 1180 300" xmlns="http://www.w3.org/2000/svg"></svg></div>
+
+        <div class="statusbar">
+          <div class="stat"><div class="k">Bus State</div><div class="v idle" id="statBusState">IDLE / RECESSIVE</div></div>
+          <div class="stat"><div class="k">Driving Node</div><div class="v" id="statDriver">&mdash;</div></div>
+          <div class="stat"><div class="k">Bus Load</div><div class="v" id="statLoad">0%</div></div>
+          <div class="stat"><div class="k">Frames / sec</div><div class="v" id="statFps">0.0</div></div>
+          <div class="stat engineer-only"><div class="k">Bit Rate</div><div class="v" id="statRate">500 kbit/s</div></div>
+        </div>
+
+        <div class="legend">
+          <span><i style="background:#e2483f"></i>Dominant</span>
+          <span><i style="background:#3a4a5c"></i>Recessive</span>
+          <span><i style="background:#dbb93f"></i>Arbitration</span>
+          <span><i style="background:#3fae74"></i>ACK</span>
+          <span><i style="background:#e08a2e"></i>Active frame</span>
+        </div>
+      </div>
+
+      <!-- ===================== AUTO DEMO / SCENARIOS ===================== -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Scenarios</h2>
+          <span class="eyebrow">guided &amp; interactive</span>
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="btnAutoDemo">&#9654; Run First Demo</button>
+          <button class="btn" id="btnStartTraffic">Start Live Traffic</button>
+          <button class="btn" id="btnStopTraffic">Stop Traffic</button>
+          <button class="btn" id="btnDoorEvent">Trigger Door Event (0x300)</button>
+        </div>
+        <div class="storyline" id="storyBox">
+          Press <b>Run First Demo</b> to watch two ECUs contend for the bus, see arbitration resolve bit-by-bit, and watch the winning frame get acknowledged and decoded &mdash; the whole CAN story end to end.
+        </div>
+      </div>
+
+      <!-- ===================== ARBITRATION ===================== -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Arbitration &mdash; The Hero Feature</h2>
+          <span class="eyebrow">non-destructive, bit-by-bit</span>
+        </div>
+        <p class="panel-sub">Two nodes start transmitting at the same instant. Every identifier bit is compared against the resulting bus value. The moment a node sends <b>recessive (1)</b> but observes <b>dominant (0)</b>, it has lost &mdash; and stops, without corrupting the winner's frame.</p>
+
+        <div class="arb-selectors">
+          <div class="arb-node">
+            <div class="name">Node A</div>
+            <select id="arbNodeA" style="width:100%;margin-top:6px;background:var(--panel3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font-family:var(--mono);font-size:11px;"></select>
+            <div class="id" id="arbIdA"></div>
+          </div>
+          <div class="arb-node">
+            <div class="name">Node B</div>
+            <select id="arbNodeB" style="width:100%;margin-top:6px;background:var(--panel3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px;font-family:var(--mono);font-size:11px;"></select>
+            <div class="id" id="arbIdB"></div>
+          </div>
+        </div>
+        <div class="btnrow" style="margin-bottom:10px;">
+          <button class="btn primary" id="btnRunArb">Run Arbitration</button>
+          <button class="btn small" id="btnArbStep">Step Bit</button>
+          <button class="btn small" id="btnArbReset">Reset</button>
+        </div>
+        <div style="overflow-x:auto;"><table class="bittable" id="arbTable"></table></div>
+        <div class="small-note" id="arbResult"></div>
+      </div>
+
+      <!-- ===================== FRAME INSPECTOR ===================== -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Frame Inspector</h2>
+          <span class="eyebrow" id="frameModeLabel">Standard 11-bit &middot; Classical CAN</span>
+        </div>
+
+        <div class="two-col" style="margin-bottom:8px;">
+          <label class="field">Transmitting node
+            <select id="frameNode" style="background:var(--panel3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px;font-family:var(--mono);font-size:12px;"></select>
+          </label>
+          <label class="field">Identifier
+            <div style="display:flex;gap:6px;">
+              <input type="text" id="frameId" value="120" style="flex:1;">
+              <button class="btn small" id="btn29">29-bit</button>
+            </div>
+          </label>
+        </div>
+        <div class="two-col" style="margin-bottom:12px;">
+          <label class="field">Data (hex bytes, space separated)
+            <input type="text" id="frameData" value="01 7A 00 32 FF 10 00 08">
+          </label>
+          <label class="field">DLC
+            <input type="text" id="frameDlc" value="8" readonly>
+          </label>
+        </div>
+
+        <div class="btnrow" style="margin-bottom:6px;">
+          <button class="btn primary" id="btnBuildFrame">Build Frame</button>
+          <button class="btn" id="btnStepFrame">&#9654; Step Through Frame</button>
+          <button class="btn" id="btnPlayFrame">&#9654; Autoplay</button>
+        </div>
+
+        <div class="frame-fields" id="fieldChips"></div>
+
+        <div class="bitstream" id="bitStream"></div>
+
+        <div class="small-note">Currently highlighting: <b id="curFieldName">&mdash;</b> &nbsp;|&nbsp; Bit <span id="curBitIdx">&mdash;</span> &nbsp;|&nbsp; Bus shows: <span id="curBitVal">&mdash;</span></div>
+
+        <div class="scope-wrap" style="margin-top:14px;">
+          <canvas id="scopeCanvas" width="1100" height="170"></canvas>
+        </div>
+        <div class="legend">
+          <span><i style="background:#e2483f"></i>CAN-H</span>
+          <span><i style="background:#4f8fdb"></i>CAN-L</span>
+          <span><i style="background:#dbb93f"></i>Differential (H&minus;L)</span>
+        </div>
+
+        <div class="engineer-only" style="margin-top:14px;">
+          <div class="panel-head" style="margin-bottom:8px;"><h2 style="font-size:12px;">Bit Stuffing</h2></div>
+          <p class="panel-sub" style="margin-bottom:6px;">After five consecutive identical bits, CAN inserts one complementary bit to guarantee edges for resynchronization. Highlighted bits below were inserted by the stuffing engine, not part of your data.</p>
+          <div class="bitstream" id="stuffStream" style="font-size:12px;"></div>
+        </div>
+
+        <div class="engineer-only" style="margin-top:14px;">
+          <div class="panel-head" style="margin-bottom:8px;"><h2 style="font-size:12px;">CRC &amp; ACK</h2></div>
+          <div class="two-col">
+            <div class="stat"><div class="k">Computed CRC-15</div><div class="v" id="crcVal" style="font-size:14px;">&mdash;</div></div>
+            <div class="stat"><div class="k">ACK Result</div><div class="v" id="ackVal" style="font-size:14px;">&mdash;</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================== CAN FD PANEL ===================== -->
+      <div class="panel engineer-only" id="fdPanel">
+        <div class="panel-head"><h2>CAN FD &mdash; Bit-Rate Switching</h2><span class="eyebrow">flexible data-rate</span></div>
+        <p class="panel-sub">CAN FD keeps the arbitration phase at the nominal bit rate (for compatibility and priority resolution), then switches to a faster data bit rate for the payload and CRC, before dropping back to nominal for the rest of the frame.</p>
+        <div class="two-col">
+          <label class="field">Nominal (arbitration) rate<input type="text" id="fdNominal" value="500 kbit/s" readonly></label>
+          <label class="field">Data-phase rate<input type="text" id="fdData" value="2 Mbit/s"></label>
+        </div>
+        <canvas id="fdCanvas" width="1100" height="90" style="width:100%;height:90px;background:#0c1119;border:1px solid var(--border-soft);border-radius:9px;margin-top:10px;"></canvas>
+        <div class="small-note">DLC-to-length is <b>not</b> linear above 8 bytes in CAN FD: DLC 9&rarr;12B, 10&rarr;16B, 11&rarr;20B, 12&rarr;24B, 13&rarr;32B, 14&rarr;48B, 15&rarr;64B.</div>
+      </div>
+
+      <!-- ===================== ERROR LAB ===================== -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Error Injection Lab</h2>
+          <span class="eyebrow">detect &middot; signal &middot; recover</span>
+        </div>
+        <p class="panel-sub">Force a specific fault on the next transmission from the selected node and watch CAN's error handling run its full course &mdash; detection, an error frame, counter changes, and possible state transitions.</p>
+
+        <label class="field" style="margin-bottom:10px;max-width:260px;">Target node
+          <select id="errNode" style="background:var(--panel3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px;font-family:var(--mono);font-size:12px;"></select>
+        </label>
+
+        <div class="errgrid" style="margin-bottom:14px;">
+          <button class="btn warn" data-err="bit">Bit Error</button>
+          <button class="btn warn" data-err="stuff">Stuff Error</button>
+          <button class="btn warn" data-err="crc">CRC Error</button>
+          <button class="btn warn" data-err="ack">ACK Error</button>
+          <button class="btn warn" data-err="form">Form Error</button>
+          <button class="btn" data-err="repeat">Force Repeated Errors &rarr; Bus-Off</button>
+          <button class="btn" id="btnResetErrors">Reset Counters</button>
+        </div>
+
+        <div id="errorFrameDisplay" class="small-note"></div>
+
+        <div style="margin-top:14px;" id="nodeStates"></div>
+      </div>
+
+      <!-- ===================== TERMINATION ===================== -->
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>Bus Termination</h2><span class="eyebrow">physical layer</span></div>
+        <p class="panel-sub">120&Omega; resistors at each physical end of the bus absorb signal reflections and set the idle differential level. This is a simplified conceptual demonstration, not a full transmission-line model.</p>
+        <div class="btnrow">
+          <button class="btn" id="btnRemoveTerm">Remove Right Termination</button>
+          <button class="btn primary" id="btnRestoreTerm">Restore Termination</button>
+        </div>
+        <div class="small-note" id="termNote">Both ends terminated &mdash; clean differential swing expected.</div>
+      </div>
+
+      <!-- ===================== LIVE ANALYZER ===================== -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Live CAN Analyzer</h2>
+          <span class="eyebrow" id="traceCount">0 frames</span>
+        </div>
+        <div class="filter-row">
+          <label class="field">Filter by ID<input type="text" id="filterId" placeholder="e.g. 100"></label>
+          <label class="field">Direction
+            <select id="filterDir" style="background:var(--panel3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px;font-family:var(--mono);font-size:11px;">
+              <option value="all">All</option><option value="TX">TX</option><option value="RX">RX</option>
+            </select>
+          </label>
+          <button class="btn small" id="btnClearTrace">Clear</button>
+        </div>
+        <div class="trace-scroll">
+          <table class="trace">
+            <thead><tr><th>Time (ms)</th><th>ID</th><th>DLC</th><th>Data</th><th>Node</th><th>Dir</th><th>Status</th></tr></thead>
+            <tbody id="traceBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===================== SIGNAL DECODER ===================== -->
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>Signal Decoder</h2><span class="eyebrow">application layer, not CAN itself</span></div>
+        <p class="panel-sub">A CAN frame just carries raw bytes. A signal database defines how to slice bits out of the payload and turn them into an engineering value &mdash; this is layered on top of CAN, not part of the protocol.</p>
+        <div class="two-col">
+          <label class="field">Signal name<input type="text" id="sigName" value="VehicleSpeed"></label>
+          <label class="field">Source ID (hex)<input type="text" id="sigId" value="180"></label>
+        </div>
+        <div class="two-col" style="margin-top:8px;">
+          <label class="field">Start bit<input type="number" id="sigStart" value="16"></label>
+          <label class="field">Length (bits)<input type="number" id="sigLen" value="16"></label>
+        </div>
+        <div class="two-col" style="margin-top:8px;">
+          <label class="field">Factor<input type="number" step="0.01" id="sigFactor" value="0.01"></label>
+          <label class="field">Offset<input type="number" step="0.01" id="sigOffset" value="0"></label>
+        </div>
+        <label class="field" style="margin-top:8px;">Raw payload (hex bytes)<input type="text" id="sigPayload" value="10 27 1F 40 00 00 00 00"></label>
+        <div class="btnrow" style="margin-top:10px;"><button class="btn primary" id="btnDecodeSig">Decode</button></div>
+        <div class="stat" style="margin-top:10px;max-width:280px;"><div class="k" id="sigOutLabel">Decoded value</div><div class="v" id="sigOutVal" style="color:var(--green);">&mdash;</div></div>
+      </div>
+
+      <!-- ===================== LAYERING ===================== -->
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>Protocol Layering</h2></div>
+        <p class="panel-sub">A raw CAN frame is not UDS, CANopen, or J1939. Those are higher-level protocols that define <i>how</i> to interpret identifiers and payload bytes; CAN only guarantees delivery, priority, and error handling of the frame itself.</p>
+        <div class="bitstream" style="line-height:2.4;">
+          APPLICATION &rarr; CAN SIGNAL/MESSAGE &rarr; CAN CONTROLLER &rarr; CAN TRANSCEIVER &rarr; PHYSICAL BUS (CAN-H / CAN-L)
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===================== SIDEBAR ===================== -->
+    <div class="col-side">
+      <div class="panel explain">
+        <div class="panel-head"><h2>What's Happening</h2></div>
+        <div id="explainContent"><p class="placeholder">Click any part of the network, bus, or frame to see a short explanation here.</p></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Event Log</h2></div>
+        <div class="log" id="eventLog"></div>
+      </div>
+
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>ECU Internal Path</h2></div>
+        <div class="bitstream" style="line-height:2.2;font-size:11.5px;">
+          APP LOGIC &rarr; TX MAILBOX &rarr; CAN CONTROLLER (arbitration, stuffing, CRC) &rarr; CAN TRANSCEIVER &rarr; CAN-H / CAN-L<br><br>
+          CAN-H / CAN-L &rarr; TRANSCEIVER &rarr; CONTROLLER &rarr; ACCEPTANCE FILTER &rarr; RX FIFO &rarr; INTERRUPT &rarr; CPU
+        </div>
+        <p class="panel-sub" style="margin-top:8px;">Not every received frame reaches the application &mdash; the acceptance filter can silently drop frames outside its configured ID range/mask before they ever reach the RX FIFO.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer class="credit">CAN Interactive Lab &middot; educational simulation &middot; bus timing, CRC and bit-stuffing are computed live from the frame you build, not decorative.</footer>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const state = {
+  mode:'beginner',
+  fd:false,
+  rate:500,
+  extended:false,
+  bus:{state:'idle', driver:null},
+  traffic:{running:false, timer:null, tickMs:220},
+  traceLog:[],
+  frameCounter:0,
+  termRemoved:false,
+  arb:{stepIndex:-1, rows:[]},
+  currentFrame:null,
+};
+
+const NODES = [
+  {id:'engine',  name:'Engine ECU',        canId:0x100, period:900,  color:'#4f8fdb', x:120},
+  {id:'trans',   name:'Transmission ECU',  canId:0x140, period:1400, color:'#4f8fdb', x:320},
+  {id:'abs',     name:'ABS ECU',           canId:0x080, period:700,  color:'#4f8fdb', x:520},
+  {id:'cluster', name:'Instrument Cluster',canId:0x200, period:0,    color:'#dbb93f', x:720, rxOnly:true},
+  {id:'body',    name:'Body Control Mod.', canId:0x300, period:0,    color:'#4f8fdb', x:920, event:true},
+  {id:'diag',    name:'Diagnostic Tester', canId:0x7DF, period:0,    color:'#9b7fd4', x:1080, event:true},
+];
+NODES.forEach(n=>{ n.tec=0; n.rec=0; n.st='active'; n.pendingError=null; });
+
+function nodeById(id){return NODES.find(n=>n.id===id);}
+
+/* =========================================================
+   EXPLAIN TEXT LIBRARY
+   ========================================================= */
+const EXPLAIN = {
+  ecu:{t:'Electronic Control Unit (ECU)', d:'An ECU is an independent embedded computer: application logic on top, a CAN controller that builds and interprets frames, and a transceiver that talks to the physical bus. Each ECU only knows about messages by identifier &mdash; not about which other ECUs exist.'},
+  controller:{t:'CAN Controller', d:'The controller assembles frames (arbitration, bit stuffing, CRC), manages error counters and state, and decides when to attempt transmission. It does not drive CAN-H/CAN-L directly &mdash; that is the transceiver\'s job.'},
+  transceiver:{t:'CAN Transceiver', d:'The transceiver converts the controller\'s logical dominant/recessive bits into the differential voltage levels on CAN-H and CAN-L, and converts the bus state back into logic levels for the controller to read.'},
+  canh:{t:'CAN-H', d:'One of the two physical bus wires. In the dominant state CAN-H rises; in recessive it settles back toward the idle level. CAN-H alone is meaningless &mdash; it only matters relative to CAN-L.'},
+  canl:{t:'CAN-L', d:'The second physical bus wire. It moves opposite to CAN-H: dominant pulls it down, recessive lets it float back up. The receiver reads the difference between CAN-H and CAN-L, which is why CAN is resistant to common-mode electrical noise.'},
+  bus:{t:'Shared CAN Bus', d:'Every node\'s transceiver taps into the same pair of wires. Only one node can successfully drive a dominant bit at a time in any given bit slot &mdash; that\'s the physical basis for arbitration.'},
+  termination:{t:'120Ω Termination', d:'Two 120Ω resistors, one at each physical end of the bus, absorb signal reflections and set the correct recessive differential level. Removing one degrades signal integrity and can cause bit errors, especially on longer or higher-speed buses.'},
+  dominant:{t:'Dominant', d:'The bus state produced when any node actively drives it (logical 0). Dominant always overrides recessive when multiple nodes drive at once &mdash; this single rule is the foundation of CAN arbitration and priority.'},
+  recessive:{t:'Recessive', d:'The passive, undriven bus state (logical 1), maintained by pull resistors when nobody is actively driving dominant. If even one node drives dominant, the whole bus reads dominant.'},
+  identifier:{t:'Identifier', d:'The ID is transmitted bit-by-bit at the start of every frame and participates directly in arbitration. A numerically lower ID has more leading dominant (0) bits, so it wins contention and is transmitted with higher bus priority.'},
+  arbitration:{t:'Arbitration', d:'When two or more nodes start transmitting at the same time, they compare their identifier bits against the resulting bus value, bit by bit. The first node to transmit recessive while observing dominant has lost, and stops immediately &mdash; non-destructively.'},
+  dlc:{t:'Data Length Code (DLC)', d:'A 4-bit field describing how much payload follows. In Classical CAN, DLC 0&ndash;8 map directly to 0&ndash;8 data bytes (9&ndash;15 are all capped at 8). In CAN FD, DLC values above 8 map to larger, non-linear byte counts up to 64.'},
+  crc:{t:'CRC (Cyclic Redundancy Check)', d:'A 15-bit checksum (CRC-15, polynomial 0x4599) computed over the frame and appended before the ACK slot. Every receiver recomputes it independently; a mismatch means the frame is discarded and a CRC error is signaled.'},
+  ack:{t:'ACK Slot', d:'The transmitter sends the ACK slot as recessive. Any receiver that has correctly received the frame (regardless of whether it "cares" about the ID) asserts a dominant bit here. This is a protocol-level acknowledgment, not an application reply.'},
+  errctr:{t:'Error Counters (TEC / REC)', d:'The Transmit and Receive Error Counters track a node\'s recent reliability. They increase on detected errors and decrease on successful transactions. Crossing 127 moves a node to Error Passive; crossing 255 on TEC moves it to Bus-Off.'},
+  busoff:{t:'Bus-Off', d:'After accumulating too many transmit errors, a node disconnects itself from normal bus participation entirely, to protect the rest of the network from a possibly faulty node. It can only rejoin after a defined recovery sequence.'},
+  fd:{t:'CAN FD', d:'CAN FD keeps arbitration at the nominal bit rate for compatibility, then switches to a faster data-phase bit rate for the payload and CRC, and supports payloads up to 64 bytes with a non-linear DLC mapping above 8 bytes.'},
+};
+
+function showExplain(key, extra){
+  const e = EXPLAIN[key];
+  if(!e) return;
+  document.getElementById('explainContent').innerHTML =
+    `<h3>${e.t}</h3><p>${e.d}</p>${extra?`<div class="deep">${extra}</div>`:''}`;
+}
+
+function log(msg, cls){
+  const el = document.getElementById('eventLog');
+  const d = document.createElement('div');
+  const t = performance.now().toFixed(0);
+  d.className = cls||'';
+  d.innerHTML = `<b>${(t/1000).toFixed(2)}s</b> &nbsp;${msg}`;
+  el.appendChild(d);
+  while(el.children.length>60) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+/* =========================================================
+   TOPOLOGY RENDER
+   ========================================================= */
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+function renderTopology(){
+  const svg = document.getElementById('topoSvg');
+  svg.innerHTML='';
+  const busY = 190, hY = 178, lY = 202;
+  const leftX = 40, rightX = 1140;
+
+  // termination boxes
+  const termL = svgEl('g',{class:'clickable'});
+  termL.appendChild(svgEl('rect',{x:leftX-14,y:hY-6,width:16,height:lY-hY+12,rx:3,fill:'#161e29',stroke:'#3a4a5c'}));
+  termL.appendChild(svgEl('text',{x:leftX-6,y:hY-12,'text-anchor':'middle',class:'ecu-sub',fill:'#8496a8'}));
+  termL.querySelector('text').textContent='120Ω';
+  termL.addEventListener('click', ()=>showExplain('termination'));
+  svg.appendChild(termL);
+
+  if(!state.termRemoved){
+    const termR = svgEl('g',{class:'clickable'});
+    termR.appendChild(svgEl('rect',{x:rightX-2,y:hY-6,width:16,height:lY-hY+12,rx:3,fill:'#161e29',stroke:'#3a4a5c'}));
+    const tt = svgEl('text',{x:rightX+6,y:hY-12,'text-anchor':'middle',class:'ecu-sub',fill:'#8496a8'});
+    tt.textContent='120Ω';
+    termR.appendChild(tt);
+    termR.addEventListener('click', ()=>showExplain('termination'));
+    svg.appendChild(termR);
+  } else {
+    const warn = svgEl('text',{x:rightX+6,y:hY-12,'text-anchor':'middle',class:'ecu-sub',fill:'#e2483f'});
+    warn.textContent='NO TERM';
+    svg.appendChild(warn);
+  }
+
+  // CAN-H / CAN-L lines
+  const hLine = svgEl('line',{x1:leftX,y1:hY,x2:rightX,y2:hY,stroke:'#3a4a5c','stroke-width':3,class:'busline clickable'});
+  hLine.addEventListener('click', ()=>showExplain('canh'));
+  svg.appendChild(hLine);
+  const lLine = svgEl('line',{x1:leftX,y1:lY,x2:rightX,y2:lY,stroke:'#2c435f','stroke-width':3,class:'busline clickable'});
+  lLine.addEventListener('click', ()=>showExplain('canl'));
+  svg.appendChild(lLine);
+
+  svg.appendChild(labelText(leftX-2, hY-16, 'CAN-H', '#e2483f', 9, 'start'));
+  svg.appendChild(labelText(leftX-2, lY+20, 'CAN-L', '#4f8fdb', 9, 'start'));
+
+  window._busLines = {h:hLine, l:lLine};
+
+  NODES.forEach(n=>{
+    const g = svgEl('g',{class:'ecu-box'});
+    // drop wire
+    const drop = svgEl('line',{x1:n.x,y1:busY,x2:n.x,y2:88,stroke:'#243040','stroke-width':2});
+    g.appendChild(drop);
+    g.dataset && (g.dataset.id=n.id);
+
+    // ECU body
+    const body = svgEl('rect',{class:'body',x:n.x-46,y:20,width:92,height:52,rx:6});
+    g.appendChild(body);
+    g.appendChild(labelText(n.x, 40, n.name, '#dde6ef', 10, 'middle'));
+    g.appendChild(labelText(n.x, 53, n.id!=='cluster'?('ID 0x'+n.canId.toString(16).toUpperCase()):'RX only', '#8496a8', 8.5, 'middle'));
+    g.appendChild(labelText(n.x, 65, n.st.toUpperCase(), n.st==='active'?'#3fae74':(n.st==='passive'?'#dbb93f':'#e2483f'), 8, 'middle'));
+
+    // controller box
+    const ctrl = svgEl('rect',{x:n.x-30,y:88,width:60,height:20,rx:4,fill:'#141c26',stroke:'#2a3648',class:'clickable'});
+    g.appendChild(ctrl);
+    g.appendChild(labelText(n.x, 101, 'CTRL', '#8496a8', 8, 'middle'));
+    ctrl.addEventListener('click', (ev)=>{ev.stopPropagation(); showExplain('controller');});
+
+    // transceiver box
+    const txcv = svgEl('rect',{x:n.x-30,y:114,width:60,height:20,rx:4,fill:'#141c26',stroke:'#2a3648',class:'clickable'});
+    g.appendChild(txcv);
+    g.appendChild(labelText(n.x, 127, 'PHY', '#8496a8', 8, 'middle'));
+    txcv.addEventListener('click', (ev)=>{ev.stopPropagation(); showExplain('transceiver');});
+
+    const drop2 = svgEl('line',{x1:n.x,y1:134,x2:n.x,y2:busY,stroke:'#243040','stroke-width':2});
+    g.appendChild(drop2);
+    g.appendChild(svgEl('circle',{cx:n.x,cy:hY,r:3,fill:'#3a4a5c'}));
+    g.appendChild(svgEl('circle',{cx:n.x,cy:lY,r:3,fill:'#3a4a5c'}));
+
+    g.id = 'ecu-'+n.id;
+    g.addEventListener('click', ()=>{
+      showExplain('ecu', `<b>${n.name}</b> transmits with identifier <b>0x${n.canId.toString(16).toUpperCase()}</b>. Lower numeric IDs win arbitration against higher ones.`);
+    });
+    svg.appendChild(g);
+  });
+
+  const busClick = svgEl('rect',{x:leftX,y:hY-14,width:rightX-leftX,height:(lY-hY)+28,fill:'transparent',class:'clickable'});
+  busClick.addEventListener('click', ()=>showExplain('bus'));
+  svg.appendChild(busClick);
+}
+
+function labelText(x,y,txt,fill,size,anchor){
+  const t = svgEl('text',{x,y,fill,'font-size':size,'text-anchor':anchor||'middle','font-family':'var(--mono)'});
+  t.textContent = txt;
+  t.style.fontFamily = "'SF Mono',Consolas,monospace";
+  return t;
+}
+
+function refreshNodeLabels(){
+  NODES.forEach(n=>{
+    const g = document.getElementById('ecu-'+n.id);
+    if(!g) return;
+    const texts = g.querySelectorAll('text');
+    if(texts[2]){ texts[2].textContent = n.st.toUpperCase(); texts[2].setAttribute('fill', n.st==='active'?'#3fae74':(n.st==='passive'?'#dbb93f':'#e2483f')); }
+  });
+}
+
+function setBusVisual(driving){
+  const {h,l} = window._busLines||{};
+  if(!h) return;
+  if(driving){
+    h.setAttribute('stroke', '#e2483f'); h.setAttribute('stroke-width', 4.5);
+    l.setAttribute('stroke', '#8a2f28'); l.setAttribute('stroke-width', 4.5);
+  } else {
+    h.setAttribute('stroke', '#3a4a5c'); h.setAttribute('stroke-width', 3);
+    l.setAttribute('stroke', '#2c435f'); l.setAttribute('stroke-width', 3);
+  }
+}
+
+/* =========================================================
+   ARBITRATION ENGINE
+   ========================================================= */
+function idToBits(id, width){
+  const bits=[];
+  for(let i=width-1;i>=0;i--) bits.push((id>>i)&1);
+  return bits;
+}
+
+function populateArbSelectors(){
+  const a = document.getElementById('arbNodeA'), b = document.getElementById('arbNodeB');
+  a.innerHTML=''; b.innerHTML='';
+  NODES.filter(n=>!n.rxOnly).forEach(n=>{
+    a.appendChild(new Option(n.name, n.id));
+    b.appendChild(new Option(n.name, n.id));
+  });
+  a.value='engine'; b.value='abs';
+  updateArbLabels();
+}
+function updateArbLabels(){
+  const a = nodeById(document.getElementById('arbNodeA').value);
+  const b = nodeById(document.getElementById('arbNodeB').value);
+  document.getElementById('arbIdA').textContent = '0x'+a.canId.toString(16).toUpperCase()+'  ('+idToBits(a.canId,11).join('')+')';
+  document.getElementById('arbIdB').textContent = '0x'+b.canId.toString(16).toUpperCase()+'  ('+idToBits(b.canId,11).join('')+')';
+}
+
+function runArbitration(animated){
+  const a = nodeById(document.getElementById('arbNodeA').value);
+  const b = nodeById(document.getElementById('arbNodeB').value);
+  const width = 11;
+  const abits = idToBits(a.canId, width), bbits = idToBits(b.canId, width);
+  const rows=[];
+  let loserFound=null;
+  for(let i=0;i<width;i++){
+    if(loserFound){ rows.push({i, a:null,b:null,bus:null,note:''}); continue; }
+    const av=abits[i], bv=bbits[i];
+    const bus = Math.min(av,bv); // dominant(0) wins
+    let note='';
+    if(av!==bus && !loserFound){ loserFound='A'; note='A observed dominant while sending recessive — ARBITRATION LOST'; }
+    else if(bv!==bus && !loserFound){ loserFound='B'; note='B observed dominant while sending recessive — ARBITRATION LOST'; }
+    rows.push({i, a:av, b:bv, bus, note, loserAt: loserFound});
+  }
+  state.arb.rows = rows;
+  state.arb.loser = loserFound;
+  state.arb.winner = loserFound==='A'?'B':(loserFound==='B'?'A':'tie(no collision)');
+  state.arb.a=a; state.arb.b=b;
+  renderArbTable(animated? -1 : rows.length);
+  const winnerNode = state.arb.winner==='A'?a:b;
+  document.getElementById('arbResult').innerHTML = loserFound
+    ? `<span class="tag-win">WINNER: ${winnerNode.name} (0x${winnerNode.canId.toString(16).toUpperCase()})</span> &nbsp;&mdash;&nbsp; <span class="tag-lost">${loserFound==='A'?a.name:b.name} lost arbitration and stops transmitting immediately (frame not corrupted, will retry later).</span>`
+    : `Both IDs identical bit pattern in this simplified demo — no collision to resolve.`;
+  log(`Arbitration: <b>${a.name}</b> (0x${a.canId.toString(16)}) vs <b>${b.name}</b> (0x${b.canId.toString(16)}) → winner ${winnerNode.name}`, 'ev-arb');
+  return rows;
+}
+
+function renderArbTable(revealCount){
+  const rows = state.arb.rows;
+  const t = document.getElementById('arbTable');
+  if(!rows || !rows.length){ t.innerHTML=''; return; }
+  let html = '<thead><tr><th>Bit</th><th>Node A</th><th>Node B</th><th>Bus</th><th>Note</th></tr></thead><tbody>';
+  rows.forEach((r,idx)=>{
+    const shown = revealCount<0 ? true : idx < revealCount;
+    if(!shown){ html+=`<tr><td colspan="5" style="color:#54697d;">&hellip;</td></tr>`; return; }
+    const rowCls = r.loserAt ? 'row-lost' : (idx===revealCount-1?'row-current':'');
+    html += `<tr class="${r.i===undefined?'':''} ${rowCls}">
+      <td>${10-r.i}</td>
+      <td>${r.a===null?'':`<span class="bit-cell ${r.a===0?'dom':'rec'}">${r.a}</span>`}</td>
+      <td>${r.b===null?'':`<span class="bit-cell ${r.b===0?'dom':'rec'}">${r.b}</span>`}</td>
+      <td>${r.bus===null?'':`<span class="bit-cell ${r.bus===0?'dom':'rec'}">${r.bus}</span>`}</td>
+      <td style="text-align:left;font-size:10.5px;">${r.note?('<span class="tag-lost">'+r.note+'</span>'):''}</td>
+    </tr>`;
+  });
+  html+='</tbody>';
+  t.innerHTML = html;
+}
+
+let arbStepTimer=null;
+function stepArbAnimated(){
+  if(!state.arb.rows.length) runArbitration(true);
+  let i=0;
+  clearInterval(arbStepTimer);
+  arbStepTimer = setInterval(()=>{
+    i++;
+    renderArbTable(i);
+    if(i>=state.arb.rows.length) clearInterval(arbStepTimer);
+  }, 260);
+}
+
+/* =========================================================
+   FRAME ENGINE
+   ========================================================= */
+function crc15(bits){
+  let crc=0;
+  for(const bit of bits){
+    const bitIn = bit ^ ((crc>>14)&1);
+    crc = (crc<<1) & 0x7FFF;
+    if(bitIn) crc ^= 0x4599;
+  }
+  return crc & 0x7FFF;
+}
+
+function dlcToBytes(dlc, fd){
+  if(!fd) return Math.min(dlc,8);
+  const map=[0,1,2,3,4,5,6,7,8,12,16,20,24,32,48,64];
+  return map[dlc]||0;
+}
+function bytesToDlc(n, fd){
+  if(!fd) return Math.min(n,8);
+  const map=[0,1,2,3,4,5,6,7,8,12,16,20,24,32,48,64];
+  for(let i=0;i<map.length;i++) if(map[i]>=n) return i;
+  return 15;
+}
+
+function hexToBytes(str){
+  return str.trim().split(/\s+/).filter(Boolean).map(h=>parseInt(h,16)&0xFF);
+}
+
+function buildFrame(canId, extended, dataBytes, fd, forceNoAck){
+  const fields=[]; let bits=[];
+  function push(name, arr){
+    const start=bits.length;
+    bits = bits.concat(arr);
+    fields.push({name, start, len:arr.length});
+  }
+  push('SOF',[0]);
+  if(!extended){
+    push('ID',idToBits(canId & 0x7FF, 11));
+    push('RTR',[0]);
+    push('IDE',[0]);
+    push('r0',[0]);
+  } else {
+    const base = (canId>>18)&0x7FF, ext = canId & 0x3FFFF;
+    push('ID-A',idToBits(base,11));
+    push('SRR',[1]);
+    push('IDE',[1]);
+    push('ID-B',idToBits(ext,18));
+    push('RTR',[0]);
+    push('r1',[0]);
+    push('r0',[0]);
+  }
+  const dlc = bytesToDlc(dataBytes.length, fd);
+  push('DLC', idToBits(dlc,4));
+  let dataBits=[];
+  dataBytes.forEach(b=> dataBits = dataBits.concat(idToBits(b,8)) );
+  push('DATA', dataBits);
+
+  const crc = crc15(bits);
+  push('CRC', idToBits(crc,15));
+  push('CRC-DELIM',[1]);
+  push('ACK', [forceNoAck?1:0]);
+  push('ACK-DELIM',[1]);
+  push('EOF',[1,1,1,1,1,1,1]);
+
+  return {bits, fields, crc, canId, extended, dataBytes, dlc, fd};
+}
+
+function stuffBits(bits, stuffEndIndex){
+  // stuff from bit0 through stuffEndIndex (inclusive), CRC field end; rest passed through unstuffed
+  const out=[]; const stuffed=[];
+  let run=1, last=null;
+  for(let i=0;i<bits.length;i++){
+    const b=bits[i];
+    out.push(b); stuffed.push(false);
+    if(i<=stuffEndIndex){
+      if(last===b) run++; else {run=1; last=b;}
+      if(run===5){
+        const sb = b===0?1:0;
+        out.push(sb); stuffed.push(true);
+        last=sb; run=1;
+      }
+    } else {
+      last=null; run=1;
+    }
+  }
+  return {out, stuffed};
+}
+
+let frameStepTimer=null;
+function buildAndRenderFrame(){
+  const idStr = document.getElementById('frameId').value.replace(/^0x/i,'');
+  let canId = parseInt(idStr,16); if(isNaN(canId)) canId=0x100;
+  const ext = state.extended;
+  canId = ext ? (canId & 0x1FFFFFFF) : (canId & 0x7FF);
+  const dataBytes = hexToBytes(document.getElementById('frameData').value).slice(0, state.fd?64:8);
+  document.getElementById('frameDlc').value = bytesToDlc(dataBytes.length, state.fd);
+
+  const frame = buildFrame(canId, ext, dataBytes, state.fd, false);
+  state.currentFrame = frame;
+
+  const crcFieldEnd = frame.fields.find(f=>f.name==='CRC-DELIM').start - 1;
+  const stuffResult = stuffBits(frame.bits, crcFieldEnd);
+  frame._stuff = stuffResult;
+
+  renderFieldChips(frame);
+  renderBitStream(frame, -1);
+  renderStuffStream(stuffResult);
+  document.getElementById('crcVal').textContent = '0x'+frame.crc.toString(16).toUpperCase().padStart(4,'0');
+  document.getElementById('ackVal').textContent = 'ACKNOWLEDGED';
+  document.getElementById('ackVal').style.color = 'var(--green)';
+  drawScope(frame, -1);
+  document.getElementById('frameModeLabel').textContent = (ext?'Extended 29-bit':'Standard 11-bit') + ' \u00b7 ' + (state.fd?'CAN FD':'Classical CAN');
+  log(`Built frame ID 0x${canId.toString(16).toUpperCase()} DLC ${frame.dlc} (${dataBytes.length}B)`, '');
+}
+
+function renderFieldChips(frame){
+  const wrap = document.getElementById('fieldChips');
+  wrap.innerHTML='';
+  frame.fields.forEach(f=>{
+    const div=document.createElement('div');
+    div.className='ffield';
+    const valStr = frame.bits.slice(f.start,f.start+f.len).join('');
+    div.innerHTML = `<div class="fn">${f.name}</div><div class="fv">${valStr.length>10?valStr.slice(0,10)+'…':valStr}</div>`;
+    div.addEventListener('click', ()=>{
+      document.querySelectorAll('.ffield').forEach(x=>x.classList.remove('active'));
+      div.classList.add('active');
+      explainField(f.name);
+      renderBitStream(frame, -1, f);
+    });
+    wrap.appendChild(div);
+  });
+}
+
+function explainField(name){
+  const map={SOF:'dominant', ID:'identifier','ID-A':'identifier','ID-B':'identifier',DLC:'dlc',DATA:null,CRC:'crc',ACK:'ack'};
+  if(map[name]) showExplain(map[name]);
+  else if(name==='DATA') showExplain('crc', 'The data field itself carries no built-in meaning to CAN — only the CRC that follows protects its integrity in transit.');
+  else if(name==='EOF') document.getElementById('explainContent').innerHTML = '<h3>End Of Frame</h3><p>Seven recessive bits mark the end of the frame and are deliberately <i>not</i> stuffed, so this fixed pattern can be used as a delimiter.</p>';
+  else document.getElementById('explainContent').innerHTML = `<h3>${name}</h3><p>Fixed-form control bit used for frame delimiting and future protocol extension.</p>`;
+}
+
+function renderBitStream(frame, highlightIdx, highlightField){
+  const el = document.getElementById('bitStream');
+  let html='';
+  frame.bits.forEach((b,i)=>{
+    let cls='bstamp b'+b;
+    if(highlightField && i>=highlightField.start && i<highlightField.start+highlightField.len) cls+=' current';
+    if(i===highlightIdx) cls+=' current';
+    html+=`<span class="${cls}">${b}</span>`;
+  });
+  el.innerHTML=html;
+}
+
+function renderStuffStream(stuffResult){
+  const el = document.getElementById('stuffStream');
+  let html='';
+  stuffResult.out.forEach((b,i)=>{
+    let cls='bstamp b'+b;
+    if(stuffResult.stuffed[i]) cls+=' stuffed';
+    html+=`<span class="${cls}">${b}</span>`;
+  });
+  el.innerHTML=html;
+}
+
+function stepFrame(){
+  const frame = state.currentFrame;
+  if(!frame) return;
+  let i = (state.arb._frameStep===undefined?-1:state.arb._frameStep) + 1;
+  if(i>=frame.bits.length) i=0;
+  state.arb._frameStep = i;
+  const field = frame.fields.find(f=> i>=f.start && i<f.start+f.len);
+  renderBitStream(frame, i);
+  drawScope(frame, i);
+  document.getElementById('curFieldName').textContent = field?field.name:'—';
+  document.getElementById('curBitIdx').textContent = i+' / '+(frame.bits.length-1);
+  document.getElementById('curBitVal').textContent = frame.bits[i]===0?'DOMINANT (0)':'RECESSIVE (1)';
+  setBusVisual(frame.bits[i]===0);
+}
+
+function playFrame(){
+  clearInterval(frameStepTimer);
+  state.arb._frameStep=-1;
+  frameStepTimer = setInterval(()=>{
+    stepFrame();
+    if(state.arb._frameStep>=state.currentFrame.bits.length-1){ clearInterval(frameStepTimer); setBusVisual(false); }
+  }, 90);
+}
+
+/* =========================================================
+   OSCILLOSCOPE
+   ========================================================= */
+function drawScope(frame, highlightIdx){
+  const canvas = document.getElementById('scopeCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#0c1119'; ctx.fillRect(0,0,w,h);
+
+  const bits = frame.bits;
+  const n = bits.length;
+  const bw = Math.max(4, (w-40)/n);
+  const baseH = 55, baseL = 115, baseDiff=90;
+
+  // gridlines
+  ctx.strokeStyle='#161e29'; ctx.lineWidth=1;
+  for(let y=20; y<h; y+=25){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+  function drawLine(getY, color, dominant){
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.beginPath();
+    let x=20;
+    for(let i=0;i<n;i++){
+      const y = getY(bits[i]);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      ctx.lineTo(x+bw,y);
+      x+=bw;
+    }
+    ctx.stroke();
+  }
+  drawLine(b=> b===0? baseH-22 : baseH, '#e2483f', true);
+  drawLine(b=> b===0? baseL+22 : baseL, '#4f8fdb', false);
+  drawLine(b=> b===0? baseDiff-32 : baseDiff, '#dbb93f', false);
+
+  ctx.font='9px monospace'; ctx.fillStyle='#54697d';
+  ctx.fillText('CAN-H', 4, baseH-24);
+  ctx.fillText('CAN-L', 4, baseL+34);
+  ctx.fillText('DIFF', 4, baseDiff-34);
+
+  if(highlightIdx>=0){
+    const x = 20 + highlightIdx*bw;
+    ctx.fillStyle='rgba(255,255,255,0.10)';
+    ctx.fillRect(x,0,bw,h);
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=1;
+    ctx.strokeRect(x,0,bw,h);
+  }
+}
+
+/* =========================================================
+   FD BIT-RATE-SWITCHING CANVAS
+   ========================================================= */
+function drawFdCanvas(){
+  const canvas = document.getElementById('fdCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w=canvas.width,h=canvas.height;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0c1119'; ctx.fillRect(0,0,w,h);
+  const segs=[{label:'ARBITRATION\\n500 kbit/s', w:0.28, color:'#4f8fdb', wide:16},
+              {label:'BRS', w:0.04, color:'#dbb93f', wide:16},
+              {label:'DATA PHASE\\n2 Mbit/s', w:0.4, color:'#9b7fd4', wide:6},
+              {label:'CRC DELIM', w:0.04, color:'#dbb93f', wide:16},
+              {label:'ACK / EOF\\n500 kbit/s', w:0.24, color:'#3fae74', wide:16}];
+  let x=10; const totalW=w-20;
+  segs.forEach(s=>{
+    const sw = s.w*totalW;
+    ctx.fillStyle=s.color+'22';
+    ctx.fillRect(x,10,sw,h-40);
+    ctx.strokeStyle=s.color; ctx.lineWidth=1.5;
+    // draw square wave
+    ctx.beginPath();
+    let cx=x, up=true, y0=h-30,y1=20;
+    ctx.moveTo(cx, up?y0:y1);
+    while(cx<x+sw){
+      const nx = Math.min(cx+s.wide, x+sw);
+      ctx.lineTo(nx, up?y0:y1);
+      up=!up;
+      ctx.lineTo(nx, up?y0:y1);
+      cx=nx;
+    }
+    ctx.stroke();
+    ctx.fillStyle='#8496a8'; ctx.font='9px monospace';
+    s.label.split('\\n').forEach((ln,i)=> ctx.fillText(ln, x+4, h-6-(s.label.split('\\n').length-1-i)*10) );
+    x+=sw;
+  });
+}
+
+/* =========================================================
+   ERROR / STATE ENGINE
+   ========================================================= */
+function nodeStateFromCounters(n){
+  if(n.tec>255) return 'busoff';
+  if(n.tec>127 || n.rec>127) return 'passive';
+  return 'active';
+}
+
+function applyError(node, type){
+  node.tec = Math.min(260, node.tec + (type==='repeat'?40:8));
+  const prevState = node.st;
+  node.st = nodeStateFromCounters(node);
+  const labels={bit:'Bit Error',stuff:'Stuff Error',crc:'CRC Error',ack:'ACK Error',form:'Form Error',repeat:'Repeated Errors'};
+  log(`<span style="color:var(--red)">ERROR (${labels[type]}) on ${node.name}</span> — error frame transmitted, TEC now ${node.tec}`, 'ev-err');
+
+  document.getElementById('errorFrameDisplay').innerHTML =
+    `<div class="badge red" style="display:inline-block;margin-bottom:6px;">ERROR FRAME</div>
+     <div>${node.name} detected a <b>${labels[type]}</b>. It transmits 6 dominant bits (error flag) violating bit-stuffing, forcing every other node to also flag the error. The frame is discarded and ${node.name} schedules a retransmission.</div>`;
+
+  if(prevState!==node.st){
+    log(`<b>${node.name}</b> transitions ${prevState.toUpperCase()} &rarr; <span style="color:${node.st==='busoff'?'var(--red)':'var(--yellow)'}">${node.st.toUpperCase()}</span>`, 'ev-err');
+  }
+  renderNodeStates();
+  refreshNodeLabels();
+  addTraceRow(node, node.canId, 0, [], 'TX', 'ERR');
+}
+
+function resetErrors(){
+  NODES.forEach(n=>{n.tec=0;n.rec=0;n.st='active';});
+  document.getElementById('errorFrameDisplay').innerHTML='';
+  renderNodeStates();
+  refreshNodeLabels();
+  log('All error counters reset.', '');
+}
+
+function renderNodeStates(){
+  const wrap = document.getElementById('nodeStates');
+  wrap.innerHTML='';
+  NODES.forEach(n=>{
+    const row=document.createElement('div');
+    row.className='node-state-row';
+    row.innerHTML = `
+      <div>
+        <div class="n">${n.name}</div>
+        <div class="ctr">TEC ${n.tec} &middot; REC ${n.rec}
+          <div class="ctr-bar"><i style="width:${Math.min(100,n.tec/255*100)}%; background:${n.st==='busoff'?'#e2483f':(n.st==='passive'?'#dbb93f':'#3fae74')}"></i></div>
+        </div>
+      </div>
+      <span class="pill ${n.st}">${n.st.toUpperCase()}</span>
+    `;
+    row.addEventListener('click', ()=>{
+      if(n.st==='busoff') showExplain('busoff'); else showExplain('errctr');
+    });
+    wrap.appendChild(row);
+  });
+}
+
+function populateErrNodeSelect(){
+  const sel = document.getElementById('errNode');
+  sel.innerHTML='';
+  NODES.filter(n=>!n.rxOnly).forEach(n=> sel.appendChild(new Option(n.name,n.id)) );
+}
+
+/* =========================================================
+   LIVE TRACE / TRAFFIC
+   ========================================================= */
+function addTraceRow(node, id, dlc, dataBytes, dir, status){
+  state.frameCounter++;
+  const t = (performance.now()/1).toFixed(1);
+  const row = {t, id, dlc, data:dataBytes.map(b=>b.toString(16).toUpperCase().padStart(2,'0')).join(' '), node:node.name, dir, status};
+  state.traceLog.push(row);
+  if(state.traceLog.length>400) state.traceLog.shift();
+  renderTraceTable();
+  document.getElementById('traceCount').textContent = state.traceLog.length+' frames';
+}
+
+function renderTraceTable(){
+  const body = document.getElementById('traceBody');
+  const filterId = document.getElementById('filterId').value.trim().toLowerCase();
+  const filterDir = document.getElementById('filterDir').value;
+  const rows = state.traceLog.slice(-120).reverse().filter(r=>{
+    if(filterId && !r.id.toString(16).toLowerCase().includes(filterId)) return false;
+    if(filterDir!=='all' && r.dir!==filterDir) return false;
+    return true;
+  });
+  body.innerHTML = rows.map(r=>`
+    <tr class="${r.status==='ERR'?'err':''}">
+      <td>${r.t}</td>
+      <td>0x${r.id.toString(16).toUpperCase().padStart(3,'0')}</td>
+      <td>${r.dlc}</td>
+      <td>${r.data||'—'}</td>
+      <td>${r.node}</td>
+      <td class="${r.dir==='TX'?'dir-tx':'dir-rx'}">${r.dir}</td>
+      <td>${r.status}</td>
+    </tr>`).join('');
+}
+
+function transmitFromNode(node, forcedDataLen){
+  if(node.st==='busoff'){ return; }
+  const dataLen = forcedDataLen!==undefined?forcedDataLen:(2+Math.floor(Math.random()*6));
+  const dataBytes = Array.from({length:dataLen}, ()=>Math.floor(Math.random()*256));
+  const frame = buildFrame(node.canId, false, dataBytes, false, false);
+  setBusVisual(true);
+  document.getElementById('statBusState').textContent='DOMINANT (SOF)';
+  document.getElementById('statBusState').className='v dom';
+  document.getElementById('statDriver').textContent=node.name;
+  addTraceRow(node, node.canId, frame.dlc, dataBytes, 'TX', 'OK');
+  // successful tx slightly heals error counter
+  node.tec = Math.max(0, node.tec-1);
+  const newSt = nodeStateFromCounters(node);
+  if(newSt!==node.st){ node.st=newSt; renderNodeStates(); refreshNodeLabels(); }
+  setTimeout(()=>{
+    setBusVisual(false);
+    document.getElementById('statBusState').textContent='IDLE / RECESSIVE';
+    document.getElementById('statBusState').className='v idle';
+    document.getElementById('statDriver').textContent='—';
+    // cluster "receives"
+    const cluster = nodeById('cluster');
+    if(cluster) addTraceRow(cluster, node.canId, frame.dlc, dataBytes, 'RX', 'OK');
+  }, 140);
+}
+
+let fpsWindow=[];
+function trafficTick(){
+  const now = performance.now();
+  NODES.filter(n=>!n.rxOnly && !n.event).forEach(n=>{
+    n._acc = (n._acc||0) + state.traffic.tickMs;
+    if(n._acc >= n.period){
+      n._acc = 0;
+      transmitFromNode(n);
+      fpsWindow.push(now);
+    }
+  });
+  fpsWindow = fpsWindow.filter(t=> now-t < 1000);
+  document.getElementById('statFps').textContent = fpsWindow.length.toFixed(1);
+  const load = Math.min(100, Math.round(fpsWindow.length*9));
+  document.getElementById('statLoad').textContent = load+'%';
+}
+
+function startTraffic(){
+  if(state.traffic.running) return;
+  state.traffic.running=true;
+  state.traffic.timer = setInterval(trafficTick, state.traffic.tickMs);
+  log('Live traffic started — periodic ECU messages now competing for the bus.', '');
+}
+function stopTraffic(){
+  state.traffic.running=false;
+  clearInterval(state.traffic.timer);
+  log('Live traffic stopped.', '');
+}
+
+/* =========================================================
+   AUTO DEMO
+   ========================================================= */
+async function runAutoDemo(){
+  const story = document.getElementById('storyBox');
+  const steps = [
+    ()=>{ story.innerHTML='<b>Step 1</b> — ABS ECU publishes a wheel-speed message (0x080).'; transmitFromNode(nodeById('abs'),4); },
+    ()=>{ story.innerHTML='<b>Step 2</b> — Engine ECU publishes RPM data (0x100).'; transmitFromNode(nodeById('engine'),4); },
+    ()=>{ story.innerHTML='<b>Step 3</b> — Engine ECU and ABS ECU both attempt to transmit at the exact same instant.'; },
+    ()=>{ story.innerHTML='<b>Step 4</b> — Arbitration begins: both nodes compare identifier bits against the bus, one bit at a time.';
+          document.getElementById('arbNodeA').value='engine'; document.getElementById('arbNodeB').value='abs'; updateArbLabels();
+          runArbitration(true); stepArbAnimated(); },
+    ()=>{ story.innerHTML='<b>Step 5</b> — ABS (0x080) has more leading dominant bits than Engine (0x100), so ABS wins arbitration.'; },
+    ()=>{ story.innerHTML='<b>Step 6</b> — Engine ECU stops transmitting immediately (frame not corrupted) and will retry once the bus is idle again.'; },
+    ()=>{ story.innerHTML='<b>Step 7</b> — Instrument Cluster receives and decodes the winning ABS frame. The full CAN story: contend → arbitrate → win → ACK → decode.';
+          addTraceRow(nodeById('cluster'), nodeById('abs').canId, 4, [1,2,3,4], 'RX', 'OK'); },
+  ];
+  for(const s of steps){ s(); await new Promise(r=>setTimeout(r, 1500)); }
+}
+
+/* =========================================================
+   SIGNAL DECODER
+   ========================================================= */
+function decodeSignal(){
+  const bytes = hexToBytes(document.getElementById('sigPayload').value);
+  const start = parseInt(document.getElementById('sigStart').value,10)||0;
+  const len = parseInt(document.getElementById('sigLen').value,10)||8;
+  const factor = parseFloat(document.getElementById('sigFactor').value)||1;
+  const offset = parseFloat(document.getElementById('sigOffset').value)||0;
+  const bitArr=[];
+  bytes.forEach(b=> bitArr.push(...idToBits(b,8)) );
+  // big-endian (motorola-ish) slice for demo clarity
+  const slice = bitArr.slice(start, start+len);
+  let raw=0;
+  slice.forEach(b=> raw = (raw<<1)|b );
+  const phys = raw*factor + offset;
+  document.getElementById('sigOutLabel').textContent = document.getElementById('sigName').value+' (raw 0x'+raw.toString(16).toUpperCase()+')';
+  document.getElementById('sigOutVal').textContent = phys.toFixed(3);
+  log(`Decoded signal <b>${document.getElementById('sigName').value}</b> = ${phys.toFixed(3)} from raw 0x${raw.toString(16)}`, '');
+}
+
+/* =========================================================
+   WIRING / INIT
+   ========================================================= */
+function bindUI(){
+  document.querySelectorAll('#modeToggle button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#modeToggle button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.mode = btn.dataset.mode;
+      document.body.classList.toggle('mode-engineer', state.mode==='engineer');
+      document.body.classList.toggle('mode-beginner', state.mode==='beginner');
+    });
+  });
+  document.querySelectorAll('#fdToggle button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#fdToggle button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.fd = btn.dataset.fd==='fd';
+      if(state.fd) showExplain('fd');
+      buildAndRenderFrame();
+      drawFdCanvas();
+    });
+  });
+  document.getElementById('rateSelect').addEventListener('change', e=>{
+    state.rate = parseInt(e.target.value,10);
+    document.getElementById('statRate').textContent = state.rate+' kbit/s';
+  });
+
+  document.getElementById('arbNodeA').addEventListener('change', updateArbLabels);
+  document.getElementById('arbNodeB').addEventListener('change', updateArbLabels);
+  document.getElementById('btnRunArb').addEventListener('click', ()=>runArbitration(false));
+  document.getElementById('btnArbStep').addEventListener('click', stepArbAnimated);
+  document.getElementById('btnArbReset').addEventListener('click', ()=>{state.arb.rows=[]; document.getElementById('arbTable').innerHTML=''; document.getElementById('arbResult').textContent='';});
+
+  document.getElementById('btn29').addEventListener('click', (e)=>{
+    state.extended = !state.extended;
+    e.target.textContent = state.extended ? '11-bit' : '29-bit';
+    e.target.classList.toggle('active', state.extended);
+    buildAndRenderFrame();
+  });
+  document.getElementById('btnBuildFrame').addEventListener('click', buildAndRenderFrame);
+  document.getElementById('btnStepFrame').addEventListener('click', stepFrame);
+  document.getElementById('btnPlayFrame').addEventListener('click', playFrame);
+
+  document.getElementById('btnAutoDemo').addEventListener('click', runAutoDemo);
+  document.getElementById('btnStartTraffic').addEventListener('click', startTraffic);
+  document.getElementById('btnStopTraffic').addEventListener('click', stopTraffic);
+  document.getElementById('btnDoorEvent').addEventListener('click', ()=>{
+    const bcm = nodeById('body');
+    transmitFromNode(bcm, 1);
+    log('Door-open event: <b>Body Control Module</b> publishes 0x300 immediately (event-driven, not periodic).', '');
+  });
+
+  document.querySelectorAll('[data-err]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const node = nodeById(document.getElementById('errNode').value);
+      applyError(node, btn.dataset.err);
+    });
+  });
+  document.getElementById('btnResetErrors').addEventListener('click', resetErrors);
+
+  document.getElementById('btnRemoveTerm').addEventListener('click', ()=>{
+    state.termRemoved = true; renderTopology();
+    document.getElementById('termNote').innerHTML = '<span style="color:var(--red)">Right-side termination removed.</span> Expect reflections and a higher chance of bit errors, especially at higher bit rates — this is a simplified conceptual model, not a full transmission-line simulation.';
+  });
+  document.getElementById('btnRestoreTerm').addEventListener('click', ()=>{
+    state.termRemoved = false; renderTopology();
+    document.getElementById('termNote').textContent = 'Both ends terminated — clean differential swing expected.';
+  });
+
+  document.getElementById('filterId').addEventListener('input', renderTraceTable);
+  document.getElementById('filterDir').addEventListener('change', renderTraceTable);
+  document.getElementById('btnClearTrace').addEventListener('click', ()=>{state.traceLog=[]; renderTraceTable(); document.getElementById('traceCount').textContent='0 frames';});
+
+  document.getElementById('btnDecodeSig').addEventListener('click', decodeSignal);
+
+  ['frameId','frameData'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', buildAndRenderFrame);
+  });
+}
+
+function populateFrameNodeSelect(){
+  const sel = document.getElementById('frameNode');
+  sel.innerHTML='';
+  NODES.filter(n=>!n.rxOnly).forEach(n=> sel.appendChild(new Option(n.name,n.id)) );
+}
+
+function init(){
+  bindUI();
+  renderTopology();
+  populateArbSelectors();
+  populateErrNodeSelect();
+  populateFrameNodeSelect();
+  renderNodeStates();
+  buildAndRenderFrame();
+  drawFdCanvas();
+  renderTraceTable();
+  log('CAN Interactive Lab ready. Click any component or run the first demo to begin.', '');
+}
+init();
+
+})();
+</script>
+</body>
+</html>
