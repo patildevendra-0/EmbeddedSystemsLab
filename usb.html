@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>USB Interactive Lab</title>
+<style>
+:root{
+  --bg:#0a0e13;
+  --panel:#111720;
+  --panel2:#161e29;
+  --panel3:#1b2430;
+  --border:#243040;
+  --border-soft:#1c2531;
+  --text:#dde6ef;
+  --text-dim:#8496a8;
+  --text-faint:#54697d;
+  --mono: 'SF Mono','JetBrains Mono',Consolas,'Courier New',monospace;
+  --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+
+  --blue:#4f8fdb;      /* usb signaling */
+  --orange:#e08a2e;    /* active transaction */
+  --green:#3fae74;     /* success / ack */
+  --red:#e2483f;       /* errors */
+  --yellow:#dbb93f;    /* host scheduling */
+  --gray:#8496a8;       /* infrastructure */
+  --purple:#9b7fd4;    /* superspeed */
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+body{-webkit-font-smoothing:antialiased;}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:#26313f;border-radius:5px;}
+a{color:var(--blue);}
+.wrap{max-width:1440px;margin:0 auto;padding:0 20px 80px;}
+
+header.top{border-bottom:1px solid var(--border);background:linear-gradient(180deg,#0d1319,#0a0e13);padding:16px 20px;position:sticky;top:0;z-index:50;backdrop-filter:blur(6px);}
+.top-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;}
+.brand-mark{width:30px;height:30px;flex:none;}
+.brand-text{display:flex;flex-direction:column;line-height:1.15;}
+.brand-text b{font-size:15px;letter-spacing:.02em;font-weight:700;}
+.brand-text span{font-size:10.5px;color:var(--text-faint);letter-spacing:.08em;text-transform:uppercase;font-family:var(--mono);}
+
+.seg{display:flex;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:2px;}
+.seg button{background:transparent;border:none;color:var(--text-dim);font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:6px 12px;border-radius:6px;cursor:pointer;transition:.15s;}
+.seg button.active{background:var(--panel3);color:var(--text);box-shadow:inset 0 0 0 1px var(--border);}
+.seg button:hover:not(.active){color:var(--text);}
+select.rate{background:var(--panel2);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 10px;border-radius:8px;cursor:pointer;}
+
+.grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-top:18px;align-items:start;}
+@media (max-width:980px){.grid{grid-template-columns:1fr;}}
+.col-main{display:flex;flex-direction:column;gap:16px;min-width:0;}
+.col-side{position:sticky;top:82px;display:flex;flex-direction:column;gap:16px;}
+@media (max-width:980px){.col-side{position:static;}}
+
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px 18px 18px;}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.panel-head h2{font-size:13px;margin:0;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--text);}
+.panel-head .eyebrow{font-family:var(--mono);font-size:10px;color:var(--text-faint);letter-spacing:.06em;}
+.panel-sub{font-size:12px;color:var(--text-dim);margin:-8px 0 12px;line-height:1.5;}
+
+.badge{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:5px;letter-spacing:.03em;border:1px solid var(--border);color:var(--text-dim);}
+.badge.blue{color:var(--blue);border-color:#274361;background:#101c28;}
+.badge.orange{color:var(--orange);border-color:#4a3315;background:#1d1509;}
+.badge.green{color:var(--green);border-color:#1f4530;background:#0e1c14;}
+.badge.red{color:var(--red);border-color:#4a2019;background:#1e0f0c;}
+.badge.yellow{color:var(--yellow);border-color:#463b16;background:#1c1808;}
+.badge.purple{color:var(--purple);border-color:#3a2f56;background:#160f24;}
+
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;}
+button.btn{font-family:var(--mono);font-size:11.5px;letter-spacing:.02em;background:var(--panel3);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:7px;cursor:pointer;transition:.15s;}
+button.btn:hover{border-color:#3a4a5c;background:#1e2836;}
+button.btn.primary{background:#1a2c1f;border-color:#2b5138;color:#7bd9a0;}
+button.btn.primary:hover{background:#1e3324;}
+button.btn.warn{background:#241512;border-color:#4a2019;color:#f0958c;}
+button.btn.warn:hover{background:#2c1815;}
+button.btn.small{padding:5px 9px;font-size:10.5px;}
+button.btn:disabled{opacity:.35;cursor:not-allowed;}
+button.btn.active{outline:1px solid var(--yellow);}
+
+input[type=text],input[type=number]{background:var(--panel3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 9px;border-radius:6px;width:100%;}
+select.fsel{background:var(--panel3);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px;font-family:var(--mono);font-size:12px;width:100%;}
+label.field{display:flex;flex-direction:column;gap:4px;font-size:10.5px;color:var(--text-faint);letter-spacing:.04em;text-transform:uppercase;}
+
+.topo-scroll{overflow-x:auto;}
+svg.topo{display:block;min-width:640px;width:100%;height:auto;}
+.clickable{cursor:pointer;}
+.clickable:hover{opacity:.85;}
+.stackbox{fill:#141c26;stroke:#2a3648;stroke-width:1;}
+.stackbox:hover{stroke:#4f8fdb;}
+
+.statusbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.stat{flex:1;min-width:120px;background:var(--panel2);border:1px solid var(--border-soft);border-radius:9px;padding:10px 12px;}
+.stat .k{font-family:var(--mono);font-size:9.5px;color:var(--text-faint);letter-spacing:.06em;text-transform:uppercase;}
+.stat .v{font-family:var(--mono);font-size:15px;margin-top:3px;font-weight:600;}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:10.5px;color:var(--text-dim);margin-top:10px;}
+.legend span{display:inline-flex;align-items:center;gap:5px;}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+.storyline{font-size:12.5px;color:var(--text-dim);line-height:1.7;background:var(--panel2);border:1px solid var(--border-soft);border-radius:9px;padding:12px 14px;margin-top:10px;}
+.storyline b{color:var(--text);}
+
+.timeline{display:flex;flex-direction:column;gap:0;margin-top:10px;}
+.tl-step{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid #141b24;cursor:pointer;transition:.15s;}
+.tl-step:hover{background:#121a24;}
+.tl-step .t{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);width:64px;flex:none;}
+.tl-step .dot{width:9px;height:9px;border-radius:50%;background:#243040;flex:none;margin-top:4px;}
+.tl-step.done .dot{background:var(--green);}
+.tl-step.active .dot{background:var(--orange);box-shadow:0 0 0 4px #1d150944;}
+.tl-step .body{flex:1;}
+.tl-step .name{font-size:12.5px;font-weight:600;}
+.tl-step .desc{font-size:11px;color:var(--text-dim);margin-top:2px;line-height:1.5;}
+
+.devstate-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.devstate{font-family:var(--mono);font-size:10.5px;padding:6px 10px;border-radius:6px;background:var(--panel2);border:1px solid var(--border-soft);color:var(--text-faint);}
+.devstate.current{color:var(--orange);border-color:#4a3315;background:#1d1509;}
+.devstate.past{color:var(--green);}
+
+.desc-tree{font-family:var(--mono);font-size:12px;line-height:2;}
+.desc-tree .lvl0{color:var(--text);}
+.desc-tree .lvl1{color:var(--blue);padding-left:18px;}
+.desc-tree .lvl2{color:var(--text-dim);padding-left:36px;}
+.desc-tree .lvl3{color:var(--text-faint);padding-left:54px;}
+.desc-tree .node{cursor:pointer;padding:2px 4px;border-radius:4px;}
+.desc-tree .node:hover{background:#161e29;}
+
+.fieldgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-top:10px;}
+.fchip{font-family:var(--mono);font-size:10.5px;padding:8px 9px;border-radius:7px;background:var(--panel2);border:1px solid var(--border-soft);cursor:pointer;transition:.15s;}
+.fchip .fn{color:var(--text-faint);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;}
+.fchip .fv{color:var(--text);font-size:12px;margin-top:2px;}
+.fchip.active{border-color:var(--orange);background:#1d1509;}
+.fchip.active .fv{color:var(--orange);}
+
+.bytesview{font-family:var(--mono);font-size:12px;line-height:2.2;background:var(--panel2);border:1px solid var(--border-soft);border-radius:9px;padding:12px;margin-top:10px;word-break:break-all;}
+.byte{display:inline-block;padding:2px 5px;border-radius:3px;margin:1px;background:#111a24;color:var(--text-dim);}
+.byte.hl{background:#1d1509;color:var(--orange);outline:1px solid var(--orange);}
+
+.stagebar{display:flex;gap:4px;margin-top:10px;}
+.stage{flex:1;text-align:center;padding:10px 6px;border-radius:7px;background:var(--panel2);border:1px solid var(--border-soft);font-family:var(--mono);font-size:11px;color:var(--text-faint);}
+.stage.active{background:#1d1509;border-color:#4a3315;color:var(--orange);}
+.stage.done{color:var(--green);}
+
+.trace-scroll{max-height:280px;overflow-y:auto;border:1px solid var(--border-soft);border-radius:9px;}
+table.trace{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10.8px;}
+table.trace thead th{position:sticky;top:0;background:#141b25;color:var(--text-faint);text-align:left;padding:7px 8px;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid var(--border);}
+table.trace tbody td{padding:6px 8px;border-bottom:1px solid #131a23;color:var(--text-dim);}
+table.trace tbody tr{cursor:pointer;}
+table.trace tbody tr:hover{background:#131b25;}
+table.trace tbody tr.err td{color:var(--red);}
+.pid-tag{font-weight:700;}
+.pid-token{color:var(--blue);}
+.pid-data{color:var(--yellow);}
+.pid-hs-ack{color:var(--green);}
+.pid-hs-nak{color:var(--orange);}
+.pid-hs-stall{color:var(--red);}
+
+.explain{min-height:120px;}
+.explain h3{font-size:13px;margin:0 0 6px;color:var(--orange);}
+.explain p{font-size:12.5px;line-height:1.65;color:var(--text-dim);margin:0 0 8px;}
+.explain .placeholder{color:var(--text-faint);font-size:12px;font-style:italic;}
+
+.log{font-family:var(--mono);font-size:11px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:0;}
+.log div{padding:4px 0;border-bottom:1px solid #141b24;color:var(--text-dim);}
+.log div b{color:var(--text);}
+.log div.ev-err{color:var(--red);}
+.log div.ev-host{color:var(--yellow);}
+.log div.ev-ok{color:var(--green);}
+
+.engineer-only{display:none;}
+body.mode-engineer .engineer-only{display:block;}
+.hidden{display:none !important;}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media (max-width:640px){.two-col{grid-template-columns:1fr;}}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+@media (max-width:760px){.three-col{grid-template-columns:1fr;}}
+
+.devicepicker{display:flex;gap:8px;flex-wrap:wrap;}
+.devcard{background:var(--panel2);border:1px solid var(--border-soft);border-radius:9px;padding:9px 12px;cursor:pointer;font-family:var(--mono);font-size:11px;color:var(--text-dim);transition:.15s;}
+.devcard.active{border-color:var(--blue);color:var(--blue);background:#101c28;}
+.devcard:hover{border-color:#3a4a5c;}
+
+.bwbar{height:16px;border-radius:4px;background:#0e141c;overflow:hidden;display:flex;margin-top:4px;}
+.bwbar i{display:block;height:100%;}
+
+.transfercmp{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;margin-top:10px;}
+.transfercmp th{text-align:left;color:var(--text-faint);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;padding:6px 8px;border-bottom:1px solid var(--border);}
+.transfercmp td{padding:8px 8px;border-bottom:1px solid #141b24;color:var(--text-dim);}
+.transfercmp tr.sel td{color:var(--text);background:#121a24;}
+.transfercmp tr{cursor:pointer;}
+
+.small-note{font-size:11px;color:var(--text-faint);margin-top:8px;line-height:1.5;}
+footer.credit{max-width:1440px;margin:30px auto 0;padding:0 20px;color:var(--text-faint);font-size:11px;text-align:center;}
+</style>
+</head>
+<body class="mode-beginner">
+
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 30 30"><rect x="2" y="6" width="10" height="18" rx="2" fill="none" stroke="#4f8fdb" stroke-width="1.4"/><rect x="18" y="6" width="10" height="18" rx="2" fill="none" stroke="#e08a2e" stroke-width="1.4"/><line x1="12" y1="15" x2="18" y2="15" stroke="#dbe4ef" stroke-width="1.4"/><circle cx="7" cy="15" r="1.6" fill="#3fae74"/><circle cx="23" cy="15" r="1.6" fill="#dbb93f"/></svg>
+      <div class="brand-text"><b>USB Interactive Lab</b><span>Host &middot; Device &middot; Enumeration &middot; Transfers</span></div>
+    </div>
+    <div class="seg" id="modeToggle">
+      <button data-mode="beginner" class="active">Beginner</button>
+      <button data-mode="engineer">Engineer</button>
+    </div>
+    <div class="seg" id="genToggle">
+      <button data-gen="usb2" class="active">USB 2.0</button>
+      <button data-gen="usb3">USB 3.x</button>
+    </div>
+    <select class="rate" id="speedSelect">
+      <option value="low">Low Speed (1.5 Mbit/s)</option>
+      <option value="full">Full Speed (12 Mbit/s)</option>
+      <option value="high" selected>High Speed (480 Mbit/s)</option>
+      <option value="super">SuperSpeed (5 Gbit/s)</option>
+    </select>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <div class="col-main">
+
+      <!-- ===================== TOPOLOGY ===================== -->
+      <div class="panel">
+        <div class="panel-head"><h2>Host / Device Architecture</h2><span class="eyebrow" id="topoStamp">host-controlled bus</span></div>
+        <p class="panel-sub">USB is not peer-to-peer. The <b>host always initiates</b> every transaction &mdash; a device never just starts sending data on its own. Click any layer to learn what it does.</p>
+        <div class="topo-scroll"><svg class="topo" id="topoSvg" viewBox="0 0 1180 340" xmlns="http://www.w3.org/2000/svg"></svg></div>
+
+        <div class="statusbar">
+          <div class="stat"><div class="k">Device State</div><div class="v" id="statDevState" style="color:var(--text-faint)">NOT ATTACHED</div></div>
+          <div class="stat"><div class="k">Address</div><div class="v" id="statAddr">&mdash;</div></div>
+          <div class="stat"><div class="k">Speed</div><div class="v" id="statSpeed">High Speed</div></div>
+          <div class="stat"><div class="k">Bus Activity</div><div class="v" id="statActivity" style="color:var(--text-faint)">IDLE</div></div>
+        </div>
+        <div class="legend">
+          <span><i style="background:#4f8fdb"></i>USB signaling</span>
+          <span><i style="background:#e08a2e"></i>Active transaction</span>
+          <span><i style="background:#3fae74"></i>Success / ACK</span>
+          <span><i style="background:#dbb93f"></i>Host scheduling</span>
+          <span><i style="background:#e2483f"></i>Error</span>
+        </div>
+      </div>
+
+      <!-- ===================== DEVICE PICKER + PLUG ===================== -->
+      <div class="panel">
+        <div class="panel-head"><h2>Choose a Device</h2><span class="eyebrow">recognizable USB peripherals</span></div>
+        <div class="devicepicker" id="devicePicker"></div>
+        <div class="btnrow" style="margin-top:14px;">
+          <button class="btn primary" id="btnPlug">&#9654; Plug In Device</button>
+          <button class="btn warn" id="btnUnplug">Unplug Device</button>
+          <button class="btn" id="btnAutoDemo">&#9654; Run First Demo</button>
+        </div>
+        <div class="storyline" id="storyBox">Pick a device above, then press <b>Plug In Device</b> or <b>Run First Demo</b> to watch the full connect &rarr; reset &rarr; enumerate &rarr; configure &rarr; ready sequence.</div>
+
+        <div class="devstate-row" id="devStateRow"></div>
+      </div>
+
+      <!-- ===================== ENUMERATION TIMELINE ===================== -->
+      <div class="panel">
+        <div class="panel-head"><h2>Enumeration Timeline</h2><span class="eyebrow">the central learning experience</span></div>
+        <p class="panel-sub">This is exactly what happens, in order, from the moment a device is physically connected to the moment an application can use it.</p>
+        <div class="timeline" id="enumTimeline"></div>
+      </div>
+
+      <!-- ===================== DESCRIPTORS ===================== -->
+      <div class="panel">
+        <div class="panel-head"><h2>Descriptor Explorer</h2><span class="eyebrow" id="descStamp">what the device tells the host</span></div>
+        <div class="two-col">
+          <div>
+            <div class="desc-tree" id="descTree"></div>
+          </div>
+          <div>
+            <div class="fieldgrid" id="descFields"></div>
+          </div>
+        </div>
+        <div class="engineer-only" style="margin-top:12px;">
+          <div class="panel-head" style="margin-bottom:6px;"><h2 style="font-size:12px;">Raw Descriptor Bytes</h2></div>
+          <div class="bytesview" id="descBytes"></div>
+        </div>
+      </div>
+
+      <!-- ===================== CONTROL TRANSFER ===================== -->
+      <div class="panel">
+        <div class="panel-head"><h2>Control Transfer &mdash; SETUP / DATA / STATUS</h2><span class="eyebrow">used for enumeration &amp; device management</span></div>
+        <p class="panel-sub">Every standard request the host issues follows the same three-stage shape. Try one below and watch it animate.</p>
+
+        <div class="two-col">
+          <label class="field">Standard request
+            <select class="fsel" id="reqSelect">
+              <option value="GET_DESCRIPTOR">GET_DESCRIPTOR (Device)</option>
+              <option value="SET_ADDRESS">SET_ADDRESS</option>
+              <option value="GET_CONFIGURATION">GET_CONFIGURATION</option>
+              <option value="SET_CONFIGURATION">SET_CONFIGURATION</option>
+              <option value="GET_STATUS">GET_STATUS</option>
+              <option value="SET_FEATURE">SET_FEATURE</option>
+              <option value="CLEAR_FEATURE">CLEAR_FEATURE</option>
+              <option value="GET_INTERFACE">GET_INTERFACE</option>
+              <option value="SET_INTERFACE">SET_INTERFACE</option>
+            </select>
+          </label>
+          <label class="field">&nbsp;<button class="btn primary" id="btnSendCtrl" style="width:100%;">&#9654; Send Control Transfer</button></label>
+        </div>
+
+        <div class="fieldgrid" id="setupFields" style="margin-top:12px;"></div>
+
+        <div class="stagebar" id="ctrlStages">
+          <div class="stage" data-stage="setup">SETUP</div>
+          <div class="stage" data-stage="data">DATA</div>
+          <div class="stage" data-stage="status">STATUS</div>
+        </div>
+        <div class="small-note" id="ctrlExplain"></div>
+      </div>
+
+      <!-- ===================== TRANSFER TYPES ===================== -->
+      <div class="panel">
+        <div class="panel-head"><h2>Transfer Types</h2><span class="eyebrow">control &middot; bulk &middot; interrupt &middot; isochronous</span></div>
+        <table class="transfercmp" id="transferTable">
+          <thead><tr><th>Type</th><th>Example</th><th>Main goal</th></tr></thead>
+          <tbody>
+            <tr data-t="control" class="sel"><td>Control</td><td>Enumeration</td><td>Device management &amp; configuration</td></tr>
+            <tr data-t="bulk"><td>Bulk</td><td>Flash drive</td><td>Reliable delivery when bandwidth allows</td></tr>
+            <tr data-t="interrupt"><td>Interrupt</td><td>Keyboard / mouse</td><td>Bounded-latency host polling</td></tr>
+            <tr data-t="isochronous"><td>Isochronous</td><td>Microphone / camera</td><td>Timely streaming, no retransmission</td></tr>
+          </tbody>
+        </table>
+        <div class="storyline" id="transferDemo"></div>
+        <div class="btnrow" style="margin-top:8px;"><button class="btn primary" id="btnRunTransfer">&#9654; Run This Transfer</button></div>
+      </div>
+
+      <!-- ===================== PACKET ANALYZER ===================== -->
+      <div class="panel">
+        <div class="panel-head"><h2>USB Protocol Analyzer</h2><span class="eyebrow" id="pktCount">0 packets</span></div>
+        <p class="panel-sub">Every simulated transaction lands here as Token &rarr; Data &rarr; Handshake, exactly as a real analyzer would capture it.</p>
+        <div class="btnrow" style="margin-bottom:8px;"><button class="btn small" id="btnClearPkts">Clear</button><button class="btn small" id="btnEnumOnly">Show Enumeration Only</button><button class="btn small" id="btnShowAll">Show All</button></div>
+        <div class="trace-scroll">
+          <table class="trace">
+            <thead><tr><th>Time (ms)</th><th>PID</th><th>Addr</th><th>EP</th><th>Dir</th><th>Data</th><th>Status</th></tr></thead>
+            <tbody id="pktBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===================== DATA TOGGLE ===================== -->
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>Data Toggle (DATA0 / DATA1)</h2></div>
+        <p class="panel-sub">Consecutive data packets on a pipe alternate DATA0/DATA1 so a receiver can detect and discard a duplicate retransmission, without needing sequence numbers.</p>
+        <div class="btnrow"><button class="btn primary" id="btnToggleDemo">Run 4 Transactions</button><button class="btn" id="btnDupeDemo">Simulate Duplicate Packet</button></div>
+        <div class="bytesview" id="toggleView" style="margin-top:10px;"></div>
+      </div>
+
+      <!-- ===================== HUB / TOPOLOGY ===================== -->
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>Hub &amp; Topology</h2></div>
+        <p class="panel-sub">USB is hierarchical, not flat: a root hub inside the host can connect directly to devices or to further hubs, which fan out to more devices.</p>
+        <div class="bytesview" style="line-height:2.3;">
+Host<br>
+ └─ Root Hub<br>
+&nbsp;&nbsp;&nbsp;├─ Keyboard (Addr 5)<br>
+&nbsp;&nbsp;&nbsp;├─ Hub (Addr 3)<br>
+&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ Mouse (Addr 6)<br>
+&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└─ Flash Drive (Addr 7)<br>
+&nbsp;&nbsp;&nbsp;└─ Camera (Addr 4)
+        </div>
+      </div>
+
+      <!-- ===================== USB-C / POWER ===================== -->
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>USB-C &amp; Power</h2></div>
+        <p class="panel-sub">USB-C is a connector/receptacle ecosystem &mdash; it does not by itself guarantee USB 3.x, USB4, Thunderbolt, or any particular power level. Those are negotiated separately.</p>
+        <div class="three-col">
+          <div class="stat"><div class="k">CC Pins</div><div class="v" style="font-size:12px;">Orientation + role detect</div></div>
+          <div class="stat"><div class="k">VBUS (default)</div><div class="v" style="font-size:12px;">5V &middot; up to 500mA/900mA</div></div>
+          <div class="stat"><div class="k">Power Delivery</div><div class="v" style="font-size:12px;">Separate message protocol over CC</div></div>
+        </div>
+        <div class="small-note">Not every USB-C device or cable supports USB Power Delivery, SuperSpeed data, or Alternate Modes &mdash; each is negotiated independently.</div>
+      </div>
+
+      <!-- ===================== BANDWIDTH ===================== -->
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>Host Scheduling &amp; Bandwidth</h2></div>
+        <p class="panel-sub">The host controller schedules every transaction into frames (and microframes at high speed). This is a simplified illustrative split, not a fixed permanent allocation.</p>
+        <div class="bwbar"><i style="width:35%;background:var(--purple)" title="Isochronous"></i><i style="width:15%;background:var(--yellow)" title="Interrupt"></i><i style="width:35%;background:var(--blue)" title="Bulk"></i><i style="width:15%;background:var(--gray)" title="Control"></i></div>
+        <div class="legend"><span><i style="background:var(--purple)"></i>Isochronous</span><span><i style="background:var(--yellow)"></i>Interrupt</span><span><i style="background:var(--blue)"></i>Bulk</span><span><i style="background:var(--gray)"></i>Control</span></div>
+        <div class="small-note">SIMULATION &mdash; illustrative split for this demo device, not measured throughput.</div>
+      </div>
+
+      <!-- ===================== ERROR LAB ===================== -->
+      <div class="panel">
+        <div class="panel-head"><h2>USB Error Lab</h2><span class="eyebrow">cause &rarr; protocol event &rarr; host reaction</span></div>
+        <div class="btnrow">
+          <button class="btn warn" data-uerr="stall">STALL</button>
+          <button class="btn warn" data-uerr="nak">NAK (temporary)</button>
+          <button class="btn warn" data-uerr="crc">CRC Error</button>
+          <button class="btn warn" data-uerr="baddesc">Bad Descriptor</button>
+          <button class="btn warn" data-uerr="noresp">Device Doesn't Respond</button>
+          <button class="btn warn" data-uerr="disconnect">Disconnect Mid-Transfer</button>
+        </div>
+        <div class="storyline" id="errorOut">Pick a fault above to see the exact chain: cause &rarr; protocol event &rarr; host reaction &rarr; device state.</div>
+      </div>
+
+      <!-- ===================== DRIVER STACK ===================== -->
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>Driver &amp; Class Stack</h2></div>
+        <p class="panel-sub">USB classes let the OS understand common device categories (HID, Mass Storage, CDC, Audio, Video, Hub) without every vendor inventing a unique protocol.</p>
+        <div class="bytesview" id="classStackView" style="line-height:2.3;"></div>
+      </div>
+
+    </div>
+
+    <!-- ===================== SIDEBAR ===================== -->
+    <div class="col-side">
+      <div class="panel explain">
+        <div class="panel-head"><h2>What's Happening</h2></div>
+        <div id="explainContent"><p class="placeholder">Click any layer, packet, or descriptor field to see a short explanation here.</p></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Event Log</h2></div>
+        <div class="log" id="eventLog"></div>
+      </div>
+      <div class="panel engineer-only">
+        <div class="panel-head"><h2>Where USB Code Lives</h2></div>
+        <div class="bytesview" style="font-size:11px;line-height:2.2;">
+          Application<br>&darr;<br>Class API<br>&darr;<br>USB Class Driver<br>&darr;<br>USB Core<br>&darr;<br>Host Controller Driver<br>&darr;<br>Host Controller (xHCI/EHCI…)<br>&darr;<br>USB PHY
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="credit">USB Interactive Lab &middot; educational simulation &middot; enumeration, descriptors, and packets reflect one shared simulated device state.</footer>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   DEVICE CATALOG
+   ========================================================= */
+const DEVICES = {
+  keyboard:{name:'USB Keyboard', class:'HID', subclass:'Boot Interface', vid:0x046D, pid:0xC31C, ep:[{n:1,dir:'IN',type:'Interrupt',mps:8,interval:'10ms'}], transfer:'interrupt'},
+  mouse:{name:'USB Mouse', class:'HID', subclass:'Boot Interface', vid:0x046D, pid:0xC077, ep:[{n:1,dir:'IN',type:'Interrupt',mps:4,interval:'8ms'}], transfer:'interrupt'},
+  flash:{name:'USB Flash Drive', class:'Mass Storage', subclass:'SCSI', vid:0x0781, pid:0x5583, ep:[{n:1,dir:'IN',type:'Bulk',mps:512,interval:'-'},{n:2,dir:'OUT',type:'Bulk',mps:512,interval:'-'}], transfer:'bulk'},
+  camera:{name:'USB Camera', class:'Video', subclass:'UVC', vid:0x1E4E, pid:0x0110, ep:[{n:1,dir:'IN',type:'Isochronous',mps:1024,interval:'125us'}], transfer:'isochronous'},
+  mic:{name:'USB Microphone', class:'Audio', subclass:'UAC', vid:0x0D8C, pid:0x0014, ep:[{n:1,dir:'IN',type:'Isochronous',mps:192,interval:'1ms'}], transfer:'isochronous'},
+  serial:{name:'USB-Serial Adapter', class:'CDC', subclass:'ACM', vid:0x0403, pid:0x6001, ep:[{n:1,dir:'IN',type:'Bulk',mps:64,interval:'-'},{n:2,dir:'OUT',type:'Bulk',mps:64,interval:'-'},{n:3,dir:'IN',type:'Interrupt',mps:8,interval:'16ms'}], transfer:'bulk'},
+  hub:{name:'USB Hub', class:'Hub', subclass:'-', vid:0x05E3, pid:0x0608, ep:[{n:1,dir:'IN',type:'Interrupt',mps:1,interval:'256ms'}], transfer:'interrupt'},
+};
+
+const state = {
+  mode:'beginner', gen:'usb2', speed:'high',
+  deviceKey:'keyboard', device:null,
+  addr:0, devState:'not-attached',
+  pkts:[], pktSeqNo:0, enumOnly:false,
+  toggleBit:0,
+};
+
+const DEV_STATES = ['not-attached','attached','powered','default','addressed','configured'];
+const DEV_STATE_LABEL = {'not-attached':'NOT ATTACHED',attached:'ATTACHED',powered:'POWERED',default:'DEFAULT',addressed:'ADDRESSED',configured:'CONFIGURED'};
+
+function log(msg, cls){
+  const el = document.getElementById('eventLog');
+  const d = document.createElement('div');
+  d.className = cls||'';
+  d.innerHTML = `<b>${(performance.now()/1000).toFixed(2)}s</b> &nbsp;${msg}`;
+  el.appendChild(d);
+  while(el.children.length>70) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+/* =========================================================
+   EXPLAIN LIBRARY
+   ========================================================= */
+const EXPLAIN = {
+  host:{t:'Host', d:'The computer. The host is always in control: it decides when transactions happen, which device gets bus time, and initiates every transfer. A device never spontaneously pushes data onto the bus uninvited.'},
+  driver:{t:'Driver / Class Driver', d:'Software in the OS that understands a specific device category (HID, Mass Storage, Audio…) and translates application requests into USB transfers, and vice versa.'},
+  usbcore:{t:'USB Core / Host Stack', d:'The operating system\'s generic USB subsystem: manages enumeration, descriptor parsing, device state, and hands class-specific work off to the right class driver.'},
+  hostctrl:{t:'Host Controller', d:'The hardware (and its driver, e.g. xHCI) that actually schedules and executes USB transactions on the wire, generating tokens and collecting responses.'},
+  phy:{t:'USB PHY / Transceiver', d:'Converts the logical USB bit stream into physical differential signaling on the bus wires (D+/D- for USB 2.0, or the SuperSpeed lanes for USB 3.x), and back again on receive.'},
+  bus:{t:'USB Bus / Cable', d:'The physical connection. For USB 2.0 this is essentially VBUS, GND, D+, D-. USB 3.x adds separate SuperSpeed TX/RX differential pairs alongside the USB 2.0 pair for backward compatibility.'},
+  devctrl:{t:'USB Device Controller', d:'The peripheral-side hardware that implements endpoints, handles the low-level protocol (tokens, data, handshakes), and exposes buffers/interrupts to the device firmware.'},
+  endpoints:{t:'Endpoints', d:'Logical communication channels inside the device, not physical pins. Each endpoint has a number, a direction, a transfer type, and a maximum packet size. EP0 always exists and handles control transfers.'},
+  firmware:{t:'Device Firmware', d:'The code running on the device itself that implements the USB stack\'s device side and the actual application logic (reading keys, writing storage blocks, capturing video frames…).'},
+  enumeration:{t:'Enumeration', d:'The process through which the host discovers, resets, addresses, and configures a USB device before any application can use it. Nothing application-level happens until enumeration completes.'},
+  descriptor:{t:'Descriptor', d:'Structured information the device returns describing what it is and how it is organized: device descriptor, configuration descriptor, interface descriptor, endpoint descriptor, and optional class-specific descriptors.'},
+  vidpid:{t:'Vendor ID / Product ID', d:'A 16-bit vendor ID and 16-bit product ID that, together with class/subclass/protocol fields, help the host identify what kind of device this is and which driver to load. They don\'t define behavior by themselves.'},
+  controlxfer:{t:'Control Transfer', d:'A three-stage transfer (SETUP, optional DATA, STATUS) used for device management and configuration — the backbone of enumeration.'},
+  bulk:{t:'Bulk Transfer', d:'Designed for reliable delivery of data when bus bandwidth is available, with error detection and retry. Used for things like flash drives. Not guaranteed real-time or low-latency.'},
+  interrupt:{t:'Interrupt Transfer', d:'Despite the name, this is not a hardware interrupt to the CPU. It\'s a USB transfer type where the host polls the device at a bounded, guaranteed-maximum interval — perfect for keyboards and mice.'},
+  isochronous:{t:'Isochronous Transfer', d:'Prioritizes timely, continuous delivery for streaming data (audio/video) over guaranteed correctness — there is no retry on error, because a late retransmit would be worse than a dropped sample.'},
+  pid_token:{t:'Token Packet', d:'Sent by the host to start a transaction: identifies the packet type (IN/OUT/SETUP), the target device address, and endpoint number, protected by a 5-bit CRC.'},
+  pid_data:{t:'Data Packet', d:'Carries the actual payload, tagged DATA0 or DATA1 (data toggle) and protected by a 16-bit CRC.'},
+  pid_hs:{t:'Handshake Packet', d:'ACK means the transaction succeeded. NAK means the device currently can\'t provide/accept data — try again, not an error. STALL means the endpoint can\'t process this request in its current state.'},
+  reset:{t:'USB Reset', d:'The host drives a defined reset signal on the bus. The device must respond by returning to its default, unconfigured state (address 0) so enumeration can proceed from a known starting point.'},
+  address:{t:'Device Address', d:'Every device starts at address 0. After the host reads the device descriptor, it assigns a unique address (1-127) via SET_ADDRESS so it can address this device specifically going forward.'},
+  hub:{t:'Hub', d:'A USB hub lets one upstream port fan out to multiple downstream ports, forming a tree topology rooted at the host\'s root hub — not a flat shared bus like CAN.'},
+  usbc:{t:'USB-C', d:'A connector and receptacle standard. It does not by itself imply any particular USB generation, SuperSpeed support, Alternate Mode, or power level — those are negotiated independently over the same connector.'},
+};
+function showExplain(key, extra){
+  const e = EXPLAIN[key]; if(!e) return;
+  document.getElementById('explainContent').innerHTML = `<h3>${e.t}</h3><p>${e.d}</p>${extra?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border-soft);font-size:12px;color:var(--text-dim);">${extra}</div>`:''}`;
+}
+
+/* =========================================================
+   TOPOLOGY SVG
+   ========================================================= */
+const NS='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e;}
+function svgText(x,y,txt,fill,size,anchor){const t=svgEl('text',{x,y,fill,'font-size':size,'text-anchor':anchor||'middle'});t.textContent=txt;t.style.fontFamily="'SF Mono',Consolas,monospace";return t;}
+
+function renderTopology(){
+  const svg=document.getElementById('topoSvg'); svg.innerHTML='';
+  const hostLayers=[['APPLICATION',30],['DRIVER',72],['USB CORE',114],['HOST CONTROLLER',156],['USB PHY',198]];
+  const devLayers=[['DEVICE PHY',198],['DEVICE CONTROLLER',156],['ENDPOINTS',114],['FIRMWARE',72]];
+  const hostX=180, devX=900, boxW=260, boxH=32;
+
+  hostLayers.forEach(([label,y])=>{
+    const g=svgEl('g',{class:'clickable'});
+    g.appendChild(svgEl('rect',{class:'stackbox',x:hostX-boxW/2,y,width:boxW,height:boxH,rx:6}));
+    g.appendChild(svgText(hostX,y+20,label,'#dde6ef',11));
+    g.addEventListener('click',()=>{
+      const map={'APPLICATION':'driver','DRIVER':'driver','USB CORE':'usbcore','HOST CONTROLLER':'hostctrl','USB PHY':'phy'};
+      showExplain(map[label]);
+    });
+    svg.appendChild(g);
+  });
+  svg.appendChild(svgText(hostX,16,'HOST (PC)','#4f8fdb',12));
+
+  devLayers.forEach(([label,y])=>{
+    const g=svgEl('g',{class:'clickable'});
+    g.appendChild(svgEl('rect',{class:'stackbox',x:devX-boxW/2,y,width:boxW,height:boxH,rx:6}));
+    g.appendChild(svgText(devX,y+20,label,'#dde6ef',11));
+    g.addEventListener('click',()=>{
+      const map={'DEVICE PHY':'phy','DEVICE CONTROLLER':'devctrl','ENDPOINTS':'endpoints','FIRMWARE':'firmware'};
+      showExplain(map[label]);
+    });
+    svg.appendChild(g);
+  });
+  svg.appendChild(svgText(devX,16,state.device?state.device.name.toUpperCase():'USB DEVICE','#e08a2e',12));
+
+  // connecting arrows within stacks
+  for(let i=0;i<hostLayers.length-1;i++){
+    svg.appendChild(svgEl('line',{x1:hostX,y1:hostLayers[i][1]+boxH,x2:hostX,y2:hostLayers[i+1][1],stroke:'#243040','stroke-width':2}));
+  }
+  for(let i=0;i<devLayers.length-1;i++){
+    svg.appendChild(svgEl('line',{x1:devX,y1:devLayers[i][1]+boxH,x2:devX,y2:devLayers[i+1][1],stroke:'#243040','stroke-width':2}));
+  }
+
+  // bus cable between PHYs
+  const busY=214;
+  const cable=svgEl('line',{x1:hostX+boxW/2,y1:busY,x2:devX-boxW/2,y2:busY,stroke:'#3a4a5c','stroke-width':4,class:'busline clickable'});
+  cable.addEventListener('click',()=>showExplain('bus'));
+  svg.appendChild(cable);
+  window._usbCable=cable;
+  svg.appendChild(svgText((hostX+devX)/2,busY-10,state.gen==='usb2'?'D+ / D- / VBUS / GND':'D+/D- + SuperSpeed TX/RX pairs','#8496a8',9.5));
+
+  // labels for connector row
+  svg.appendChild(svgText((hostX+devX)/2,busY+22,'USB CABLE','#54697d',9));
+
+  // device summary block below
+  const sumY=246;
+  const g2=svgEl('g',{class:'clickable'});
+  g2.appendChild(svgEl('rect',{class:'stackbox',x:devX-boxW/2,y:sumY,width:boxW,height:52,rx:6}));
+  g2.appendChild(svgText(devX,sumY+18,state.device?state.device.name:'—','#dde6ef',11));
+  g2.appendChild(svgText(devX,sumY+34,state.device?('Class: '+state.device.class):'', '#8496a8',9));
+  g2.appendChild(svgText(devX,sumY+46,'State: '+DEV_STATE_LABEL[state.devState],state.devState==='configured'?'#3fae74':'#dbb93f',9));
+  g2.addEventListener('click',()=>showExplain('endpoints', 'Endpoints for this device: '+(state.device?state.device.ep.map(e=>'EP'+e.n+' '+e.dir).join(', '):'—')));
+  svg.appendChild(g2);
+}
+
+function setCableActive(on){
+  if(!window._usbCable) return;
+  window._usbCable.setAttribute('stroke', on?'#e08a2e':'#3a4a5c');
+  window._usbCable.setAttribute('stroke-width', on?6:4);
+}
+
+/* =========================================================
+   DEVICE PICKER
+   ========================================================= */
+function renderDevicePicker(){
+  const wrap=document.getElementById('devicePicker');
+  wrap.innerHTML='';
+  Object.entries(DEVICES).forEach(([key,d])=>{
+    const c=document.createElement('div');
+    c.className='devcard'+(key===state.deviceKey?' active':'');
+    c.textContent=d.name;
+    c.addEventListener('click',()=>{
+      state.deviceKey=key;
+      renderDevicePicker();
+      log(`Selected device: <b>${d.name}</b>`, '');
+    });
+    wrap.appendChild(c);
+  });
+}
+
+/* =========================================================
+   DEVICE STATE MACHINE
+   ========================================================= */
+function setDevState(s){
+  state.devState=s;
+  document.getElementById('statDevState').textContent = DEV_STATE_LABEL[s];
+  document.getElementById('statDevState').style.color = s==='configured'?'var(--green)':(s==='not-attached'?'var(--text-faint)':'var(--orange)');
+  renderDeviceStateRow();
+  renderTopology();
+}
+function renderDeviceStateRow(){
+  const wrap=document.getElementById('devStateRow');
+  wrap.innerHTML='';
+  const order=['attached','powered','default','addressed','configured'];
+  const curIdx=order.indexOf(state.devState);
+  order.forEach((s,i)=>{
+    const d=document.createElement('div');
+    d.className='devstate'+(s===state.devState?' current':(i<curIdx?' past':''));
+    d.textContent=DEV_STATE_LABEL[s];
+    wrap.appendChild(d);
+  });
+}
+
+/* =========================================================
+   PACKET ANALYZER LOG
+   ========================================================= */
+function addPacket(pid, addr, ep, dir, data, status, isEnum){
+  state.pktSeqNo++;
+  const t=(performance.now()/1).toFixed(2);
+  state.pkts.push({t,pid,addr,ep,dir,data,status,isEnum:!!isEnum});
+  if(state.pkts.length>500) state.pkts.shift();
+  renderPacketTable();
+}
+function pidClass(pid){
+  if(['SETUP','IN','OUT'].includes(pid)) return 'pid-token';
+  if(pid==='DATA0'||pid==='DATA1') return 'pid-data';
+  if(pid==='ACK') return 'pid-hs-ack';
+  if(pid==='NAK') return 'pid-hs-nak';
+  if(pid==='STALL') return 'pid-hs-stall';
+  return '';
+}
+function renderPacketTable(){
+  const body=document.getElementById('pktBody');
+  const rows = (state.enumOnly ? state.pkts.filter(p=>p.isEnum) : state.pkts).slice(-140);
+  body.innerHTML = rows.map(p=>`
+    <tr class="${p.status==='ERR'?'err':''}" data-pid="${p.pid}">
+      <td>${p.t}</td>
+      <td><span class="pid-tag ${pidClass(p.pid)}">${p.pid}</span></td>
+      <td>${p.addr}</td>
+      <td>${p.ep}</td>
+      <td>${p.dir}</td>
+      <td>${p.data||'—'}</td>
+      <td>${p.status}</td>
+    </tr>`).join('');
+  document.getElementById('pktCount').textContent = rows.length+' packets shown';
+  Array.from(body.querySelectorAll('tr')).forEach(tr=>{
+    tr.addEventListener('click',()=>{
+      const map={SETUP:'pid_token',IN:'pid_token',OUT:'pid_token',DATA0:'pid_data',DATA1:'pid_data',ACK:'pid_hs',NAK:'pid_hs',STALL:'pid_hs'};
+      showExplain(map[tr.dataset.pid]||'pid_token');
+    });
+  });
+}
+
+/* =========================================================
+   ENUMERATION SEQUENCE
+   ========================================================= */
+const ENUM_STEPS = [
+  {name:'Device Connected', t:'0.000', desc:'Physical attach detected by the host controller\'s port status change.', state:'attached'},
+  {name:'Bus Reset', t:'0.500', desc:'Host drives a bus reset; device firmware returns to its default, unconfigured state.', state:'powered'},
+  {name:'Default Address (0)', t:'0.700', desc:'Device now responds only at address 0 — the reserved default address before it has an identity.', state:'default'},
+  {name:'GET_DESCRIPTOR (Device)', t:'1.200', desc:'Host requests the Device Descriptor to learn class, VID/PID, and max packet size for EP0.', state:'default'},
+  {name:'SET_ADDRESS', t:'1.500', desc:'Host assigns a unique bus address; device confirms and starts responding at the new address.', state:'addressed'},
+  {name:'GET_DESCRIPTOR (Configuration)', t:'2.100', desc:'Host reads the full configuration descriptor: interfaces, endpoints, and class-specific descriptors.', state:'addressed'},
+  {name:'SET_CONFIGURATION', t:'2.900', desc:'Host activates a configuration; endpoints other than EP0 become usable.', state:'configured'},
+  {name:'Device Ready', t:'3.200', desc:'The OS loads the matching class driver and the application can finally use the device.', state:'configured'},
+];
+
+function renderEnumTimeline(activeIdx){
+  const wrap=document.getElementById('enumTimeline');
+  wrap.innerHTML='';
+  ENUM_STEPS.forEach((s,i)=>{
+    const row=document.createElement('div');
+    row.className='tl-step'+(activeIdx!==undefined && i<activeIdx?' done':'')+(i===activeIdx?' active':'');
+    row.innerHTML=`<div class="t">${s.t} ms</div><div class="dot"></div><div class="body"><div class="name">${s.name}</div><div class="desc">${s.desc}</div></div>`;
+    row.addEventListener('click',()=>showExplain('enumeration', `<b>${s.name}</b> — ${s.desc}`));
+    wrap.appendChild(row);
+  });
+}
+renderEnumTimeline();
+
+async function runEnumeration(){
+  const d = DEVICES[state.deviceKey];
+  state.device = d;
+  document.getElementById('storyBox').innerHTML = `Plugging in <b>${d.name}</b>…`;
+  for(let i=0;i<ENUM_STEPS.length;i++){
+    const step = ENUM_STEPS[i];
+    renderEnumTimeline(i);
+    setDevState(step.state);
+    setCableActive(true);
+    document.getElementById('storyBox').innerHTML = `<b>${step.t} ms</b> — ${step.name}. ${step.desc}`;
+    log(`<span style="color:var(--yellow)">HOST</span> → ${step.name}`, 'ev-host');
+
+    if(step.name==='Bus Reset'){
+      addPacket('SETUP','0','EP0','OUT','RESET','OK', true);
+    } else if(step.name.startsWith('GET_DESCRIPTOR (Device)')){
+      addPacket('SETUP','0','EP0','OUT','80 06 00 01 00 00 40 00','OK', true);
+      addPacket('IN','0','EP0','IN','','NAK', true);
+      addPacket('DATA0','0','EP0','IN', deviceDescBytes(d), 'OK', true);
+      addPacket('OUT','0','EP0','OUT','','ACK', true);
+    } else if(step.name==='SET_ADDRESS'){
+      state.addr = 5;
+      addPacket('SETUP','0','EP0','OUT','00 05 05 00 00 00 00 00','OK', true);
+      addPacket('IN','0','EP0','IN','','ACK', true);
+      document.getElementById('statAddr').textContent = state.addr;
+    } else if(step.name.startsWith('GET_DESCRIPTOR (Configuration)')){
+      addPacket('SETUP', state.addr,'EP0','OUT','80 06 00 02 00 00 FF 00','OK', true);
+      addPacket('DATA1', state.addr,'EP0','IN', configDescBytes(d), 'OK', true);
+      addPacket('OUT', state.addr,'EP0','OUT','','ACK', true);
+    } else if(step.name==='SET_CONFIGURATION'){
+      addPacket('SETUP', state.addr,'EP0','OUT','00 09 01 00 00 00 00 00','OK', true);
+      addPacket('IN', state.addr,'EP0','IN','','ACK', true);
+    }
+    renderDescriptors();
+    await new Promise(r=>setTimeout(r, 650));
+  }
+  setCableActive(false);
+  document.getElementById('storyBox').innerHTML = `<b>${d.name}</b> is enumerated and ready. Address ${state.addr}, class <b>${d.class}</b>. The OS has now loaded a matching class driver.`;
+  renderClassStack();
+  log(`<span style="color:var(--green)">Device ready</span>: ${d.name} at address ${state.addr}`, 'ev-ok');
+}
+
+function unplugDevice(){
+  if(state.devState==='not-attached'){ return; }
+  log(`<span style="color:var(--red)">Device disconnected</span>: ${state.device?state.device.name:''}`, 'ev-err');
+  document.getElementById('storyBox').innerHTML = 'DEVICE DISCONNECTED → host detects disconnect → driver notified → device removed from the topology.';
+  setDevState('not-attached');
+  state.addr=0;
+  document.getElementById('statAddr').textContent='—';
+  renderEnumTimeline();
+  setCableActive(false);
+}
+
+/* =========================================================
+   DESCRIPTOR RENDERING
+   ========================================================= */
+function deviceDescBytes(d){
+  return `12 01 00 02 ${cls(d.class)} 00 00 40 ${le16(d.vid)} ${le16(d.pid)} 00 01 01 02 03 01`;
+}
+function configDescBytes(d){
+  return `09 02 22 00 01 01 00 80 32 ...`;
+}
+function cls(c){
+  const map={HID:'00',Audio:'01',CDC:'02','Mass Storage':'08',Hub:'09',Video:'0E'};
+  return map[c]||'FF';
+}
+function le16(v){
+  const lo=(v&0xFF).toString(16).padStart(2,'0');
+  const hi=((v>>8)&0xFF).toString(16).padStart(2,'0');
+  return (lo+' '+hi).toUpperCase();
+}
+
+function renderDescriptors(){
+  const d = state.device;
+  const tree = document.getElementById('descTree');
+  const fields = document.getElementById('descFields');
+  if(!d){ tree.innerHTML='<span style="color:var(--text-faint)">No device attached.</span>'; fields.innerHTML=''; return; }
+
+  tree.innerHTML = `
+    <div class="node lvl0" data-k="device">Device Descriptor</div>
+    <div class="node lvl1" data-k="config">└ Configuration Descriptor</div>
+    <div class="node lvl2" data-k="interface">&nbsp;&nbsp;└ Interface: ${d.class}${d.subclass!=='-'?(' / '+d.subclass):''}</div>
+    ${d.ep.map(e=>`<div class="node lvl3" data-k="ep${e.n}">&nbsp;&nbsp;&nbsp;&nbsp;└ Endpoint ${e.n} ${e.dir} — ${e.type}</div>`).join('')}
+  `;
+  Array.from(tree.querySelectorAll('.node')).forEach(n=>{
+    n.addEventListener('click', ()=>{
+      if(n.dataset.k==='device') showExplain('descriptor');
+      else if(n.dataset.k==='config') showExplain('descriptor', 'Configuration Descriptor groups one or more Interfaces, each with its own Endpoints.');
+      else if(n.dataset.k==='interface') showExplain('descriptor', `Interface class ${d.class} tells the OS which class driver to load.`);
+      else showExplain('endpoints');
+    });
+  });
+
+  fields.innerHTML = `
+    <div class="fchip" data-k="vidpid"><div class="fn">VID</div><div class="fv">0x${d.vid.toString(16).toUpperCase().padStart(4,'0')}</div></div>
+    <div class="fchip" data-k="vidpid"><div class="fn">PID</div><div class="fv">0x${d.pid.toString(16).toUpperCase().padStart(4,'0')}</div></div>
+    <div class="fchip" data-k="class"><div class="fn">Class</div><div class="fv">${d.class}</div></div>
+    <div class="fchip" data-k="mps"><div class="fn">EP0 Max Packet</div><div class="fv">${state.gen==='usb2'?'64':'512'}</div></div>
+    <div class="fchip" data-k="numcfg"><div class="fn"># Configurations</div><div class="fv">1</div></div>
+    <div class="fchip" data-k="numep"><div class="fn"># Endpoints</div><div class="fv">${d.ep.length}</div></div>
+  `;
+  Array.from(fields.querySelectorAll('.fchip')).forEach(f=>{
+    f.addEventListener('click', ()=>{
+      document.querySelectorAll('.fchip').forEach(x=>x.classList.remove('active'));
+      f.classList.add('active');
+      showExplain(f.dataset.k==='vidpid'?'vidpid':'descriptor');
+    });
+  });
+
+  document.getElementById('descBytes').innerHTML = deviceDescBytes(d).split(' ').map(b=>`<span class="byte">${b}</span>`).join('');
+}
+
+/* =========================================================
+   CONTROL TRANSFER VISUALIZER
+   ========================================================= */
+const STD_REQUESTS = {
+  GET_DESCRIPTOR:{bmRequestType:'80', bRequest:'06', wValue:'DEVICE (0100)', wIndex:'0000', wLength:'0012', hasData:true, dir:'IN'},
+  SET_ADDRESS:{bmRequestType:'00', bRequest:'05', wValue:'0005', wIndex:'0000', wLength:'0000', hasData:false, dir:'OUT'},
+  GET_CONFIGURATION:{bmRequestType:'80', bRequest:'08', wValue:'0000', wIndex:'0000', wLength:'0001', hasData:true, dir:'IN'},
+  SET_CONFIGURATION:{bmRequestType:'00', bRequest:'09', wValue:'0001', wIndex:'0000', wLength:'0000', hasData:false, dir:'OUT'},
+  GET_STATUS:{bmRequestType:'80', bRequest:'00', wValue:'0000', wIndex:'0000', wLength:'0002', hasData:true, dir:'IN'},
+  SET_FEATURE:{bmRequestType:'00', bRequest:'03', wValue:'0001', wIndex:'0000', wLength:'0000', hasData:false, dir:'OUT'},
+  CLEAR_FEATURE:{bmRequestType:'00', bRequest:'01', wValue:'0001', wIndex:'0000', wLength:'0000', hasData:false, dir:'OUT'},
+  GET_INTERFACE:{bmRequestType:'81', bRequest:'0A', wValue:'0000', wIndex:'0000', wLength:'0001', hasData:true, dir:'IN'},
+  SET_INTERFACE:{bmRequestType:'01', bRequest:'0B', wValue:'0000', wIndex:'0000', wLength:'0000', hasData:false, dir:'OUT'},
+};
+
+function renderSetupFields(){
+  const req = STD_REQUESTS[document.getElementById('reqSelect').value];
+  const wrap = document.getElementById('setupFields');
+  wrap.innerHTML = `
+    <div class="fchip"><div class="fn">bmRequestType</div><div class="fv">0x${req.bmRequestType}</div></div>
+    <div class="fchip"><div class="fn">bRequest</div><div class="fv">0x${req.bRequest}</div></div>
+    <div class="fchip"><div class="fn">wValue</div><div class="fv">${req.wValue}</div></div>
+    <div class="fchip"><div class="fn">wIndex</div><div class="fv">0x${req.wIndex}</div></div>
+    <div class="fchip"><div class="fn">wLength</div><div class="fv">0x${req.wLength}</div></div>
+  `;
+}
+renderSetupFields();
+
+async function sendControlTransfer(){
+  const reqName = document.getElementById('reqSelect').value;
+  const req = STD_REQUESTS[reqName];
+  const stages = document.getElementById('ctrlStages').children;
+  Array.from(stages).forEach(s=>s.classList.remove('active','done'));
+
+  stages[0].classList.add('active');
+  document.getElementById('ctrlExplain').textContent = `SETUP: host sends bmRequestType=0x${req.bmRequestType}, bRequest=${reqName}, wValue=${req.wValue}, wIndex=0x${req.wIndex}, wLength=0x${req.wLength}.`;
+  addPacket('SETUP', state.addr||0,'EP0','OUT', `${req.bmRequestType} ${req.bRequest} ...`, 'OK');
+  showExplain('controlxfer');
+  await new Promise(r=>setTimeout(r,500));
+  stages[0].classList.remove('active'); stages[0].classList.add('done');
+
+  if(req.hasData){
+    stages[1].classList.add('active');
+    document.getElementById('ctrlExplain').textContent = `DATA ${req.dir}: ${req.dir==='IN'?'device returns':'host sends'} ${parseInt(req.wLength,16)} byte(s) of data.`;
+    addPacket(state.toggleBit?'DATA1':'DATA0', state.addr||0,'EP0', req.dir, '...', 'OK');
+    state.toggleBit^=1;
+    await new Promise(r=>setTimeout(r,500));
+    stages[1].classList.remove('active'); stages[1].classList.add('done');
+  } else {
+    stages[1].classList.add('done');
+  }
+
+  stages[2].classList.add('active');
+  document.getElementById('ctrlExplain').textContent = `STATUS: opposite-direction zero-length packet confirms the transfer completed successfully.`;
+  addPacket(req.dir==='IN'?'OUT':'IN', state.addr||0,'EP0', req.dir==='IN'?'OUT':'IN', '', 'ACK');
+  await new Promise(r=>setTimeout(r,400));
+  stages[2].classList.remove('active'); stages[2].classList.add('done');
+  log(`Control transfer <b>${reqName}</b> completed.`, 'ev-ok');
+}
+
+/* =========================================================
+   TRANSFER TYPE DEMOS
+   ========================================================= */
+const TRANSFER_INFO = {
+  control:{ex:'Enumeration (GET_DESCRIPTOR, SET_ADDRESS…)', text:'Every enumeration request you just saw above is a Control transfer: SETUP → DATA → STATUS.'},
+  bulk:{ex:'USB Flash Drive', text:'Host → Bulk OUT token → device writes a block; Host → Bulk IN token → device returns a block. As much bandwidth as the bus has left is used, with retries on error, but no scheduling guarantee on timing.'},
+  interrupt:{ex:'Keyboard / Mouse', text:'Host periodically sends an IN token to the keyboard\'s interrupt endpoint (bounded polling interval, e.g. every 10ms). If a key is pressed, the keyboard replies with a HID report; otherwise it replies NAK ("nothing new").'},
+  isochronous:{ex:'Microphone / Camera', text:'Host reserves a fixed slot every (micro)frame. The device streams samples into it. If a packet is missed, it is NOT retransmitted — a late audio sample is worse than a dropped one.'},
+};
+function updateTransferDemo(){
+  const sel = document.querySelector('#transferTable tr.sel');
+  const t = sel.dataset.t;
+  document.getElementById('transferDemo').innerHTML = `<b>${TRANSFER_INFO[t].ex}</b> — ${TRANSFER_INFO[t].text}`;
+  showExplain(t==='control'?'controlxfer':t);
+}
+async function runSelectedTransfer(){
+  const t = document.querySelector('#transferTable tr.sel').dataset.t;
+  if(t==='control'){ document.getElementById('reqSelect').value='GET_DESCRIPTOR'; renderSetupFields(); await sendControlTransfer(); return; }
+  if(t==='bulk'){
+    addPacket('OUT', state.addr||5,'EP2','OUT','...512B block...','OK');
+    addPacket('DATA1', state.addr||5,'EP2','OUT','block data','ACK');
+    await new Promise(r=>setTimeout(r,300));
+    addPacket('IN', state.addr||5,'EP1','IN','','OK');
+    addPacket('DATA0', state.addr||5,'EP1','IN','block data','ACK');
+    log('Bulk transfer: wrote then read a 512B block to/from the storage device.', 'ev-ok');
+  } else if(t==='interrupt'){
+    for(let i=0;i<3;i++){
+      addPacket('IN', state.addr||5,'EP1','IN','','NAK');
+      await new Promise(r=>setTimeout(r,220));
+    }
+    addPacket('IN', state.addr||5,'EP1','IN','','OK');
+    addPacket('DATA0', state.addr||5,'EP1','IN','01 00 04 00 00 00 00 00','ACK');
+    log('Interrupt transfer: host polled 3 times with NAK ("nothing new"), 4th poll returned a HID report (key press).', 'ev-ok');
+  } else if(t==='isochronous'){
+    for(let i=0;i<4;i++){
+      addPacket('IN', state.addr||5,'EP1','IN','','OK');
+      addPacket(i%2?'DATA1':'DATA0', state.addr||5,'EP1','IN','audio samples','—');
+      await new Promise(r=>setTimeout(r,150));
+    }
+    log('Isochronous transfer: continuous stream, no ACK/retry — timeliness over reliability.', 'ev-ok');
+  }
+}
+
+/* =========================================================
+   DATA TOGGLE DEMO
+   ========================================================= */
+async function runToggleDemo(){
+  const view=document.getElementById('toggleView');
+  view.innerHTML='';
+  let bit=0;
+  for(let i=1;i<=4;i++){
+    const label = bit?'DATA1':'DATA0';
+    view.innerHTML += `<div>Transaction ${i} → <span class="byte hl">${label}</span></div>`;
+    addPacket(label, state.addr||5,'EP1','IN','payload','ACK');
+    bit^=1;
+    await new Promise(r=>setTimeout(r,300));
+  }
+}
+function runDupeDemo(){
+  const view=document.getElementById('toggleView');
+  view.innerHTML += `<div style="margin-top:8px;color:var(--text-dim);">Host retransmits due to a lost ACK — device receives the <b>same</b> DATA1 packet twice in a row:</div>`;
+  view.innerHTML += `<div>Received → <span class="byte hl">DATA1</span> (new)</div>`;
+  view.innerHTML += `<div>Received → <span class="byte hl">DATA1</span> (duplicate — <span style="color:var(--yellow)">toggle didn't advance, so it's discarded, not processed twice</span>)</div>`;
+  log('Data toggle caught a duplicate retransmission without needing sequence numbers.', 'ev-ok');
+}
+
+/* =========================================================
+   ERROR LAB
+   ========================================================= */
+function runUsbError(type){
+  const out = document.getElementById('errorOut');
+  const d = state.device;
+  const chains = {
+    stall:['Host sends a request the device can\'t currently satisfy.', 'DEVICE → STALL handshake on the endpoint.', 'Host driver reads the halt condition and may need to clear it (CLEAR_FEATURE) before continuing.', 'Endpoint remains halted until cleared.'],
+    nak:['Host sends an IN token asking for data.', 'Device has nothing ready yet → NAK.', 'Host retries shortly after — NAK is normal flow control, not an error.', 'Device eventually returns data once ready.'],
+    crc:['A data packet is corrupted in transit.', 'Receiver\'s CRC16 check fails → packet silently dropped (no handshake returned).', 'Sender times out waiting for ACK and retransmits using the same data toggle bit.', 'Receiver accepts the retransmission normally.'],
+    baddesc:['Host requests the Device Descriptor.', 'Device returns a malformed/inconsistent descriptor.', 'Host\'s enumeration logic rejects it and enumeration fails.', 'Device is left un-configured; OS reports an unrecognized/malfunctioning device.'],
+    noresp:['Host sends a token to the device.', 'No response arrives at all within the bus timeout.', 'Host controller reports a transaction timeout up the stack.', 'Driver may retry a bounded number of times, then report the device as unresponsive.'],
+    disconnect:['Device is physically removed mid-transfer.', 'Host controller detects loss of the differential signal / VBUS.', 'In-flight transfer is aborted; driver receives a disconnect notification.', 'Device state resets to NOT ATTACHED; a future re-connect starts enumeration from scratch.'],
+  };
+  const labels={stall:'STALL',nak:'NAK (temporary)',crc:'CRC Error',baddesc:'Bad Descriptor',noresp:'Device Doesn\'t Respond',disconnect:'Disconnect Mid-Transfer'};
+  out.innerHTML = `<b>${labels[type]}</b><br>` + chains[type].map((s,i)=>`${i+1}. ${s}`).join('<br>');
+  addPacket(type==='crc'?'DATA0':(type==='stall'?'STALL':'IN'), state.addr||0,'EP0', 'OUT', '', 'ERR');
+  log(`<span style="color:var(--red)">USB fault injected:</span> ${labels[type]}`, 'ev-err');
+  if(type==='disconnect') unplugDevice();
+}
+
+/* =========================================================
+   CLASS STACK VIEW
+   ========================================================= */
+function renderClassStack(){
+  const d = state.device; if(!d) return;
+  const map = {
+    HID:'Keyboard/Mouse Firmware → HID Report Descriptor → HID Class Driver → OS Input Subsystem → Application',
+    'Mass Storage':'Storage Firmware → SCSI-over-Bulk → Mass Storage Class Driver → Block Device → Filesystem → Application',
+    Audio:'Mic Firmware → Isochronous stream → Audio Class Driver → OS Audio Subsystem → Application',
+    Video:'Camera Firmware → UVC stream → Video Class Driver → OS Video Subsystem → Application',
+    CDC:'UART bridge Firmware → CDC-ACM → Serial Class Driver → Virtual COM Port → Application',
+    Hub:'Hub Firmware → Hub Class Driver → downstream port management',
+  };
+  document.getElementById('classStackView').textContent = map[d.class] || '—';
+}
+
+/* =========================================================
+   AUTO DEMO
+   ========================================================= */
+async function runAutoDemo(){
+  if(state.devState!=='not-attached') unplugDevice();
+  await new Promise(r=>setTimeout(r,200));
+  await runEnumeration();
+  await new Promise(r=>setTimeout(r,300));
+  document.getElementById('storyBox').innerHTML += ' Now press a virtual key / run a transfer below to see application-level USB traffic.';
+  await runSelectedTransfer();
+}
+
+/* =========================================================
+   WIRING
+   ========================================================= */
+function bindUI(){
+  document.querySelectorAll('#modeToggle button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('#modeToggle button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.mode=btn.dataset.mode;
+      document.body.classList.toggle('mode-engineer', state.mode==='engineer');
+    });
+  });
+  document.querySelectorAll('#genToggle button').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('#genToggle button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.gen = btn.dataset.gen==='usb3'?'usb3':'usb2';
+      if(state.gen==='usb3') showExplain('bus', 'USB 3.x adds separate SuperSpeed TX+/TX-/RX+/RX- pairs alongside the USB 2.0 D+/D- pair for backward compatibility — it is not just "faster D+/D-".');
+      renderTopology();
+    });
+  });
+  document.getElementById('speedSelect').addEventListener('change', e=>{
+    state.speed = e.target.value;
+    const labels={low:'Low Speed',full:'Full Speed',high:'High Speed',super:'SuperSpeed'};
+    document.getElementById('statSpeed').textContent = labels[state.speed];
+  });
+
+  document.getElementById('btnPlug').addEventListener('click', runEnumeration);
+  document.getElementById('btnUnplug').addEventListener('click', unplugDevice);
+  document.getElementById('btnAutoDemo').addEventListener('click', runAutoDemo);
+
+  document.getElementById('reqSelect').addEventListener('change', renderSetupFields);
+  document.getElementById('btnSendCtrl').addEventListener('click', sendControlTransfer);
+
+  Array.from(document.querySelectorAll('#transferTable tbody tr')).forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      document.querySelectorAll('#transferTable tr').forEach(x=>x.classList.remove('sel'));
+      tr.classList.add('sel');
+      updateTransferDemo();
+    });
+  });
+  document.getElementById('btnRunTransfer').addEventListener('click', runSelectedTransfer);
+
+  document.getElementById('btnClearPkts').addEventListener('click', ()=>{state.pkts=[]; renderPacketTable();});
+  document.getElementById('btnEnumOnly').addEventListener('click', ()=>{state.enumOnly=true; renderPacketTable();});
+  document.getElementById('btnShowAll').addEventListener('click', ()=>{state.enumOnly=false; renderPacketTable();});
+
+  document.getElementById('btnToggleDemo').addEventListener('click', runToggleDemo);
+  document.getElementById('btnDupeDemo').addEventListener('click', runDupeDemo);
+
+  document.querySelectorAll('[data-uerr]').forEach(btn=>{
+    btn.addEventListener('click', ()=>runUsbError(btn.dataset.uerr));
+  });
+}
+
+function init(){
+  bindUI();
+  renderDevicePicker();
+  renderTopology();
+  renderDeviceStateRow();
+  renderDescriptors();
+  updateTransferDemo();
+  renderPacketTable();
+  log('USB Interactive Lab ready. Pick a device and press Plug In, or run the first demo.', '');
+}
+init();
+
+})();
+</script>
+</body>
+</html>
