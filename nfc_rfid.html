@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NFC &amp; RFID Interactive Lab</title>
+<style>
+:root{
+  --bg:#0a0e14;
+  --bg-panel:#10161f;
+  --bg-panel-2:#141c27;
+  --bg-raised:#1a2330;
+  --line:#233047;
+  --line-soft:#1a2432;
+  --text:#dbe4f0;
+  --text-dim:#8ba0bc;
+  --text-faint:#5a6d87;
+  --field:#3b82f6;
+  --field-glow:#5b9dff;
+  --cyan:#22d3ee;
+  --green:#34d399;
+  --orange:#fb923c;
+  --red:#f87171;
+  --purple:#a78bfa;
+  --mono:'IBM Plex Mono','SF Mono',Consolas,monospace;
+  --sans:'IBM Plex Sans',Inter,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(ellipse 900px 500px at 20% -10%, rgba(59,130,246,.10), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(34,211,238,.06), transparent 60%),
+    var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  min-height:100vh;
+}
+@font-face{font-family:'IBM Plex Sans';src:local('Arial');}
+@font-face{font-family:'IBM Plex Mono';src:local('Consolas');}
+
+::selection{background:rgba(59,130,246,.35);}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:#26344a;border-radius:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ============ HEADER ============ */
+header{
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg, rgba(16,22,31,.9), rgba(16,22,31,.6));
+  backdrop-filter:blur(6px);
+  position:sticky;top:0;z-index:50;
+}
+.header-inner{
+  max-width:1400px;margin:0 auto;padding:14px 22px;
+  display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;}
+.brand-mark{
+  width:34px;height:34px;border-radius:8px;
+  background:radial-gradient(circle at 35% 30%, var(--field-glow), var(--field) 60%, #1c3f7a 100%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 18px rgba(59,130,246,.45);
+  font-size:16px;
+}
+.brand-text .t1{font-weight:700;font-size:15px;letter-spacing:.3px;}
+.brand-text .t2{font-size:10.5px;color:var(--text-faint);letter-spacing:1.5px;text-transform:uppercase;font-family:var(--mono);}
+
+.hdr-group{display:flex;align-items:center;gap:6px;background:var(--bg-panel);border:1px solid var(--line);border-radius:9px;padding:3px;}
+.hdr-btn{
+  border:none;background:transparent;color:var(--text-dim);font-family:var(--mono);
+  font-size:11.5px;padding:7px 11px;border-radius:6px;cursor:pointer;letter-spacing:.3px;
+  transition:.15s;white-space:nowrap;
+}
+.hdr-btn:hover{color:var(--text);background:var(--bg-raised);}
+.hdr-btn.active{background:var(--field);color:#fff;box-shadow:0 0 12px rgba(59,130,246,.5);}
+
+select.hdr-select{
+  background:var(--bg-panel);border:1px solid var(--line);color:var(--text);
+  font-family:var(--mono);font-size:11.5px;padding:8px 10px;border-radius:8px;cursor:pointer;
+}
+select.hdr-select:focus{outline:2px solid var(--field);}
+
+/* ============ LAYOUT ============ */
+.wrap{max-width:1400px;margin:0 auto;padding:22px;}
+.grid{display:grid;grid-template-columns:1fr 360px;gap:18px;}
+@media (max-width:1050px){.grid{grid-template-columns:1fr;}}
+
+/* ============ PANEL ============ */
+.panel{
+  background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;
+  overflow:hidden;
+}
+.panel-hd{
+  padding:12px 16px;border-bottom:1px solid var(--line-soft);
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--bg-panel-2);
+}
+.panel-hd h2{font-size:12px;margin:0;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-dim);font-family:var(--mono);font-weight:600;}
+.panel-body{padding:16px;}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;}
+
+/* ============ STAGE (main scene) ============ */
+.stage-panel{position:relative;}
+.stage-svg-wrap{
+  position:relative;background:
+    radial-gradient(ellipse 500px 300px at 50% 40%, rgba(59,130,246,.08), transparent 70%),
+    #0b1119;
+  border-bottom:1px solid var(--line-soft);
+}
+.scenario-tag{
+  position:absolute;top:12px;left:14px;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);
+  background:rgba(10,14,20,.6);border:1px solid var(--line);padding:4px 9px;border-radius:20px;
+}
+.freq-badge{
+  position:absolute;top:12px;right:14px;font-family:var(--mono);font-size:10.5px;color:var(--cyan);
+  background:rgba(10,14,20,.6);border:1px solid rgba(34,211,238,.3);padding:4px 9px;border-radius:20px;
+}
+
+/* stage progress strip */
+.stage-strip{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px;border-bottom:1px solid var(--line-soft);background:var(--bg-panel-2);}
+.stage-pill{
+  font-family:var(--mono);font-size:10px;letter-spacing:.4px;padding:5px 9px;border-radius:20px;
+  background:var(--bg-raised);color:var(--text-faint);border:1px solid var(--line);white-space:nowrap;
+  transition:.2s;
+}
+.stage-pill.done{color:var(--text-dim);border-color:var(--line);}
+.stage-pill.current{background:var(--field);color:#fff;border-color:var(--field);box-shadow:0 0 12px rgba(59,130,246,.5);}
+.stage-pill.err{background:var(--red);color:#1c0a0a;border-color:var(--red);}
+
+/* transport controls */
+.transport{display:flex;align-items:center;gap:8px;padding:12px 16px;flex-wrap:wrap;}
+.tbtn{
+  background:var(--bg-raised);border:1px solid var(--line);color:var(--text);
+  width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:13px;transition:.15s;
+}
+.tbtn:hover{border-color:var(--field);color:var(--field-glow);}
+.tbtn.wide{width:auto;padding:0 12px;font-family:var(--mono);font-size:11px;gap:6px;}
+.speed-select{background:var(--bg-raised);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:11px;padding:8px;border-radius:8px;}
+.transport .fill{flex:1;}
+.step-label{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
+
+/* sliders row */
+.controls-row{display:flex;flex-wrap:wrap;gap:18px;padding:14px 16px;border-top:1px solid var(--line-soft);}
+.ctrl{flex:1;min-width:150px;}
+.ctrl label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);margin-bottom:6px;letter-spacing:.3px;}
+.ctrl label b{color:var(--cyan);font-weight:600;}
+input[type=range]{width:100%;accent-color:var(--field);height:4px;}
+.mini-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.mini-btn{
+  background:var(--bg-raised);border:1px solid var(--line);color:var(--text-dim);
+  font-family:var(--mono);font-size:10.5px;padding:6px 10px;border-radius:7px;cursor:pointer;transition:.15s;
+}
+.mini-btn:hover{border-color:var(--field);color:var(--text);}
+.mini-btn.active{background:var(--field);color:#fff;border-color:var(--field);}
+
+/* ============ TABS ============ */
+.tabbar{display:flex;gap:4px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--bg-panel-2);}
+.tab{
+  font-family:var(--mono);font-size:11px;padding:8px 12px;border-radius:8px;cursor:pointer;
+  color:var(--text-faint);border:1px solid transparent;transition:.15s;letter-spacing:.2px;
+}
+.tab:hover{color:var(--text-dim);background:var(--bg-raised);}
+.tab.active{color:#fff;background:var(--field);box-shadow:0 0 10px rgba(59,130,246,.4);}
+.tab.locked{opacity:.35;cursor:not-allowed;}
+.tabcontent{display:none;padding:18px;}
+.tabcontent.active{display:block;animation:fade .25s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+
+h3.section-title{font-size:13px;margin:0 0 10px;color:var(--text);font-weight:600;}
+p.helptext{font-size:12.5px;color:var(--text-dim);line-height:1.6;margin:0 0 14px;}
+.callout{
+  border:1px solid var(--line);background:var(--bg-raised);border-radius:10px;padding:12px 14px;
+  font-size:12px;color:var(--text-dim);line-height:1.6;margin:10px 0;
+}
+.callout.warn{border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.06);color:#f3b7b7;}
+.callout.warn b{color:var(--red);}
+.callout.good{border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.06);color:#a9e9d1;}
+
+/* ============ diagrams (ascii-ish flow, css based) ============ */
+.flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;font-family:var(--mono);font-size:11px;}
+.flow-node{
+  background:var(--bg-raised);border:1px solid var(--line);border-radius:9px;padding:9px 13px;
+  color:var(--text-dim);text-align:center;transition:.2s;
+}
+.flow-node.on{border-color:var(--field);color:#fff;background:rgba(59,130,246,.18);box-shadow:0 0 10px rgba(59,130,246,.35);}
+.flow-arrow{color:var(--text-faint);padding:0 8px;font-size:14px;}
+
+/* ============ log table / analyzer ============ */
+table.logtable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+table.logtable th{
+  text-align:left;color:var(--text-faint);font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+  font-size:9.5px;padding:6px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg-panel);
+}
+table.logtable td{padding:6px 8px;border-bottom:1px solid var(--line-soft);color:var(--text-dim);}
+table.logtable tr:last-child td{color:var(--text);}
+.dir-r2t{color:var(--field-glow);}
+.dir-t2r{color:var(--cyan);}
+.status-ok{color:var(--green);}
+.status-err{color:var(--red);}
+.logscroll{max-height:260px;overflow-y:auto;border:1px solid var(--line-soft);border-radius:10px;}
+
+/* ============ waveform ============ */
+.scope{background:#070b10;border:1px solid var(--line-soft);border-radius:10px;padding:10px;}
+.scope-row{display:flex;align-items:center;gap:10px;padding:4px 0;}
+.scope-label{width:92px;font-family:var(--mono);font-size:10px;color:var(--text-faint);flex-shrink:0;}
+canvas.scope-canvas{width:100%;height:44px;display:block;border-radius:5px;background:#050810;}
+.bits-line{font-family:var(--mono);font-size:12px;color:var(--green);letter-spacing:2px;word-break:break-all;padding:8px 10px;background:#050810;border-radius:6px;margin-top:4px;}
+
+/* ============ memory grid ============ */
+.memgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px;}
+.memblock{
+  aspect-ratio:1;background:var(--bg-raised);border:1px solid var(--line);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--text-dim);
+  cursor:pointer;transition:.15s;
+}
+.memblock:hover{border-color:var(--field);color:#fff;}
+.memblock.selected{background:var(--field);color:#fff;border-color:var(--field);}
+.memblock.locked{border-style:dashed;color:var(--orange);}
+.memviews{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px;}
+.memview{background:var(--bg-raised);border:1px solid var(--line);border-radius:9px;padding:10px;}
+.memview .lbl{font-family:var(--mono);font-size:9.5px;color:var(--text-faint);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;}
+.memview .val{font-family:var(--mono);font-size:13px;color:var(--cyan);word-break:break-all;}
+
+/* ============ uid bytes ============ */
+.bytebox{
+  display:inline-flex;align-items:center;justify-content:center;background:var(--bg-raised);border:1px solid var(--line);
+  border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:13px;margin:3px;cursor:pointer;transition:.15s;color:var(--text);
+}
+.bytebox:hover{border-color:var(--cyan);color:var(--cyan);}
+.bytebox.sel{background:var(--cyan);color:#04262b;border-color:var(--cyan);}
+
+/* ============ misc ============ */
+.badge{display:inline-block;font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:20px;background:var(--bg-raised);border:1px solid var(--line);color:var(--text-dim);margin-left:6px;}
+.badge.g{color:var(--green);border-color:rgba(52,211,153,.4);}
+.badge.o{color:var(--orange);border-color:rgba(251,146,60,.4);}
+.badge.r{color:var(--red);border-color:rgba(248,113,113,.4);}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:700px){.two-col{grid-template-columns:1fr;}}
+.card-mini{background:var(--bg-raised);border:1px solid var(--line);border-radius:10px;padding:12px;}
+.card-mini h4{margin:0 0 6px;font-size:12px;color:var(--text);}
+.card-mini p{margin:0;font-size:11.5px;color:var(--text-dim);line-height:1.55;}
+
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.chip{
+  font-family:var(--mono);font-size:11px;padding:8px 13px;border-radius:20px;background:var(--bg-raised);
+  border:1px solid var(--line);color:var(--text-dim);cursor:pointer;transition:.15s;
+}
+.chip:hover{color:var(--text);border-color:var(--field);}
+.chip.active{background:var(--field);color:#fff;border-color:var(--field);}
+
+.taglist{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
+.tagrow{
+  display:flex;align-items:center;justify-content:space-between;background:var(--bg-raised);
+  border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-family:var(--mono);font-size:11px;
+}
+.tagrow.collide{border-color:var(--red);animation:shake .4s;}
+.tagrow.selected{border-color:var(--green);}
+@keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-3px);}75%{transform:translateX(3px);}}
+.tagrow .rm{cursor:pointer;color:var(--text-faint);}
+.tagrow .rm:hover{color:var(--red);}
+
+footer{max-width:1400px;margin:10px auto 40px;padding:0 22px;color:var(--text-faint);font-size:11px;font-family:var(--mono);text-align:center;}
+
+.right-col{display:flex;flex-direction:column;gap:18px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-mark">📡</div>
+      <div class="brand-text">
+        <div class="t1">NFC &amp; RFID Interactive Lab</div>
+        <div class="t2">RF Field → Protocol → Application</div>
+      </div>
+    </div>
+
+    <div class="hdr-group" id="modeGroup">
+      <button class="hdr-btn active" data-mode="beginner">Beginner</button>
+      <button class="hdr-btn" data-mode="engineer">Engineer</button>
+    </div>
+
+    <select class="hdr-select" id="scenarioSelect"></select>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+
+    <!-- ============ LEFT: STAGE + TABS ============ -->
+    <div>
+      <div class="panel stage-panel">
+        <div class="panel-hd">
+          <h2>Live Scene</h2>
+          <span id="powerState" class="badge o">FIELD OFF</span>
+        </div>
+
+        <div class="stage-svg-wrap">
+          <span class="scenario-tag" id="scenarioTag">Contactless Bank Card</span>
+          <span class="freq-badge" id="freqBadge">13.56 MHz · HF</span>
+          <div id="stageSvg"></div>
+        </div>
+
+        <div class="stage-strip" id="stageStrip"></div>
+
+        <div class="transport">
+          <button class="tbtn" id="btnReset" title="Reset">⏮</button>
+          <button class="tbtn" id="btnStep" title="Step">⏭</button>
+          <button class="tbtn wide" id="btnPlay" title="Play/Pause">▶ Play</button>
+          <select class="speed-select" id="speedSelect">
+            <option value="2000">0.25×</option>
+            <option value="1200">0.5×</option>
+            <option value="700" selected>1×</option>
+            <option value="350">2×</option>
+            <option value="90">10×</option>
+          </select>
+          <div class="fill"></div>
+          <span class="step-label" id="stepLabel">Ready — bring tag near reader</span>
+        </div>
+
+        <div class="controls-row">
+          <div class="ctrl">
+            <label>Distance <b id="distVal">62%</b></label>
+            <input type="range" id="distanceSlider" min="0" max="100" value="62">
+          </div>
+          <div class="ctrl">
+            <label>Orientation <b id="orientVal">0°</b></label>
+            <input type="range" id="orientSlider" min="0" max="90" value="0">
+          </div>
+          <div class="ctrl" style="flex:1.3">
+            <label>Environment</label>
+            <div class="mini-btns" id="envBtns">
+              <button class="mini-btn active" data-env="clear">Clear</button>
+              <button class="mini-btn" data-env="wallet">Wallet (multi-card)</button>
+              <button class="mini-btn" data-env="metal">Near metal</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:18px;">
+        <div class="tabbar" id="tabbar"></div>
+        <div id="tabcontents"></div>
+      </div>
+    </div>
+
+    <!-- ============ RIGHT: LOG + WAVEFORM ============ -->
+    <div class="right-col">
+      <div class="panel">
+        <div class="panel-hd"><h2>Protocol Analyzer</h2><span class="badge" id="protoBadge">NFC-A</span></div>
+        <div class="panel-body">
+          <p class="helptext" style="margin-bottom:10px;">Every row is generated live from the simulated transaction on the left — nothing here is prewritten.</p>
+          <div class="logscroll">
+            <table class="logtable" id="logTable">
+              <thead><tr><th>t (ms)</th><th>Dir</th><th>Cmd</th><th>Status</th></tr></thead>
+              <tbody id="logBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd"><h2>Waveform</h2></div>
+        <div class="panel-body">
+          <div class="scope">
+            <div class="scope-row"><div class="scope-label">RF Carrier</div><canvas class="scope-canvas" id="cvCarrier"></canvas></div>
+            <div class="scope-row"><div class="scope-label">Modulation</div><canvas class="scope-canvas" id="cvMod"></canvas></div>
+          </div>
+          <div class="bits-line" id="bitsLine">— no data yet —</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd"><h2>Field Strength</h2></div>
+        <div class="panel-body">
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:6px;">
+            Coupling: <b id="couplingPct" style="color:var(--cyan)">0%</b>
+          </div>
+          <div style="height:10px;border-radius:6px;background:var(--bg-raised);overflow:hidden;border:1px solid var(--line);">
+            <div id="fieldBar" style="height:100%;width:0%;background:linear-gradient(90deg,#1c3f7a,var(--field-glow));transition:width .25s;"></div>
+          </div>
+          <p class="helptext" style="margin-top:10px;margin-bottom:0;">Distance ↑ → coupling ↓ → power delivered to a passive tag ↓ → reliability ↓. This is illustrative, not a calibrated RF model.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>EDUCATIONAL SIMULATION · All UIDs, keys, waveforms and transactions are synthetic · No real payment or access-control credentials are used or reproduced</footer>
+
+<script>
+/* ======================================================================
+   NFC & RFID INTERACTIVE LAB — application logic
+   All state lives in `S`. The scene, stage strip, log, waveform and every
+   tab render FROM this state so the simulation stays internally consistent.
+====================================================================== */
+
+const el = id => document.getElementById(id);
+
+/* ---------------- data: scenarios & protocol families ---------------- */
+
+const SCENARIOS = [
+  {id:'bank',    label:'Contactless Bank Card', reader:'POS Terminal', tag:'Bank Card',    family:'NFCA', freq:'HF', passive:true,  icon:'💳'},
+  {id:'transit', label:'Metro / Transit Card',   reader:'Gate Reader',  tag:'Transit Card', family:'NFCA', freq:'HF', passive:true,  icon:'🚇'},
+  {id:'phone',   label:'NFC Phone',              reader:'NFC Terminal', tag:'Phone (card emu.)', family:'NFCA', freq:'HF', passive:false, icon:'📱'},
+  {id:'badge',   label:'Access Badge',           reader:'Door Reader',  tag:'Access Badge', family:'NFCB', freq:'HF', passive:true,  icon:'🪪'},
+  {id:'ware',    label:'RFID Inventory Tag',     reader:'Fixed Reader', tag:'Warehouse Tag', family:'EPC',  freq:'UHF',passive:true,  icon:'📦'},
+  {id:'smart',   label:'NFC Smart Tag',          reader:'Phone (reader mode)', tag:'NFC Tag', family:'NFCA', freq:'HF', passive:true, icon:'🏷️'},
+  {id:'animal',  label:'Animal / Asset RFID',    reader:'Handheld Scanner', tag:'Implant / Ear Tag', family:'NFCV', freq:'HF', passive:true, icon:'🐄'},
+];
+
+const FAMILIES = {
+  NFCA:{ label:'NFC-A (ISO/IEC 14443 Type A)', freq:'HF',
+    steps:[
+      {id:'field',  stage:'FIELD',   log:null, text:'Reader energizes its antenna coil. An RF field is now present.'},
+      {id:'reqa',   stage:'POLL',    log:{dir:'r2t', cmd:'REQA / WUPA', status:'OK'}, text:'Reader broadcasts REQA (or WUPA to also wake halted tags).'},
+      {id:'atqa',   stage:'DETECT',  log:{dir:'t2r', cmd:'ATQA', status:'OK'}, text:'Powered tag(s) reply ATQA — presence + basic type info.'},
+      {id:'anticol',stage:'ANTI-COLLISION', log:{dir:'both', cmd:'ANTICOLLISION (cascade)', status:'ANTICOLLISION'}, text:'If multiple tags answered, a bit-frame anti-collision loop narrows down one UID.'},
+      {id:'select', stage:'SELECT',  log:{dir:'r2t', cmd:'SELECT', status:'OK'}, text:'Reader selects one specific tag by its UID.'},
+      {id:'sak',    stage:'SELECT',  log:{dir:'t2r', cmd:'SAK', status:'OK'}, text:'Tag returns SAK, declaring its protocol capabilities.'},
+      {id:'cmd',    stage:'COMMAND', log:{dir:'r2t', cmd:'APP COMMAND', status:'OK'}, text:'Reader sends an application command (read block, get data, auth request…).'},
+      {id:'resp',   stage:'RESPONSE',log:{dir:'t2r', cmd:'RESPONSE DATA', status:'OK'}, text:'Tag replies with the requested data or an authentication response.'},
+      {id:'app',    stage:'APPLICATION', log:null, text:'The host application interprets the result (grant access, show NDEF content, etc).'},
+    ]},
+  NFCB:{ label:'NFC-B (ISO/IEC 14443 Type B)', freq:'HF',
+    steps:[
+      {id:'field',  stage:'FIELD',  log:null, text:'Reader energizes its antenna coil.'},
+      {id:'reqb',   stage:'POLL',   log:{dir:'r2t', cmd:'REQB / WUPB', status:'OK'}, text:'Reader broadcasts REQB/WUPB with a slot-based framework parameter.'},
+      {id:'atqb',   stage:'DETECT', log:{dir:'t2r', cmd:'ATQB', status:'OK'}, text:'Tag answers in its assigned time slot with ATQB (contains its PUPI).'},
+      {id:'anticol',stage:'ANTI-COLLISION', log:{dir:'both', cmd:'SLOT ARBITRATION', status:'ANTICOLLISION'}, text:'Type B resolves collisions using time-slots rather than bit-frame anticollision.'},
+      {id:'attrib', stage:'SELECT', log:{dir:'r2t', cmd:'ATTRIB', status:'OK'}, text:'Reader sends ATTRIB to select and configure the chosen tag.'},
+      {id:'cmd',    stage:'COMMAND', log:{dir:'r2t', cmd:'APP COMMAND', status:'OK'}, text:'Application-layer command sent to the activated tag.'},
+      {id:'resp',   stage:'RESPONSE',log:{dir:'t2r', cmd:'RESPONSE DATA', status:'OK'}, text:'Tag responds with data.'},
+      {id:'app',    stage:'APPLICATION', log:null, text:'Application interprets the result.'},
+    ]},
+  NFCF:{ label:'NFC-F (FeliCa-style)', freq:'HF',
+    steps:[
+      {id:'field',  stage:'FIELD', log:null, text:'Reader energizes its antenna coil.'},
+      {id:'poll',   stage:'POLL',  log:{dir:'r2t', cmd:'POLLING', status:'OK'}, text:'Reader sends a POLLING command with a system code filter.'},
+      {id:'pollresp',stage:'DETECT', log:{dir:'t2r', cmd:'POLLING RESPONSE', status:'OK'}, text:'Matching tag replies with its IDm/PMm (manufacture ID + parameters).'},
+      {id:'anticol',stage:'ANTI-COLLISION', log:{dir:'both', cmd:'TIME-SLOT RESPONSE', status:'ANTICOLLISION'}, text:'Multiple tags reply in different time slots to avoid collisions.'},
+      {id:'activate',stage:'SELECT', log:{dir:'r2t', cmd:'ACTIVATE (implicit)', status:'OK'}, text:'The responding tag is now the active communication target — no separate SELECT frame like Type A.'},
+      {id:'cmd',    stage:'COMMAND', log:{dir:'r2t', cmd:'APP COMMAND', status:'OK'}, text:'Application command (e.g. read service data) sent.'},
+      {id:'resp',   stage:'RESPONSE',log:{dir:'t2r', cmd:'RESPONSE DATA', status:'OK'}, text:'Tag responds.'},
+      {id:'app',    stage:'APPLICATION', log:null, text:'Application interprets result.'},
+    ]},
+  NFCV:{ label:'NFC-V / ISO 15693 (vicinity)', freq:'HF',
+    steps:[
+      {id:'field',  stage:'FIELD', log:null, text:'Reader energizes its antenna coil (vicinity range, longer than A/B/F).'},
+      {id:'inv',    stage:'POLL',  log:{dir:'r2t', cmd:'INVENTORY', status:'OK'}, text:'Reader broadcasts an INVENTORY request with a slot count.'},
+      {id:'slots',  stage:'DETECT',log:{dir:'t2r', cmd:'SLOT RESPONSES', status:'OK'}, text:'Tags answer in pseudo-random slots with their UID.'},
+      {id:'anticol',stage:'ANTI-COLLISION', log:{dir:'both', cmd:'SLOT ANTI-COLLISION', status:'ANTICOLLISION'}, text:'Reader repeats INVENTORY with a finer slot count until each tag has its own slot.'},
+      {id:'select', stage:'SELECT',log:{dir:'r2t', cmd:'SELECT', status:'OK'}, text:'A specific UID is selected for further commands.'},
+      {id:'cmd',    stage:'COMMAND', log:{dir:'r2t', cmd:'APP COMMAND', status:'OK'}, text:'Application command sent (e.g. read block).'},
+      {id:'resp',   stage:'RESPONSE',log:{dir:'t2r', cmd:'RESPONSE DATA', status:'OK'}, text:'Tag responds.'},
+      {id:'app',    stage:'APPLICATION', log:null, text:'Application interprets result.'},
+    ]},
+  EPC:{ label:'EPC Gen2 / ISO 18000-63 (UHF)', freq:'UHF',
+    steps:[
+      {id:'field',  stage:'FIELD', log:null, text:'Reader radiates a continuous RF wave illuminating many tags at once.'},
+      {id:'query',  stage:'POLL',  log:{dir:'r2t', cmd:'QUERY', status:'OK'}, text:'Reader sends QUERY, telling tags to load a random slot counter.'},
+      {id:'rn16',   stage:'DETECT',log:{dir:'t2r', cmd:'RN16 (backscatter)', status:'OK'}, text:'Tags whose slot counter hits zero backscatter a random 16-bit number.'},
+      {id:'anticol',stage:'ANTI-COLLISION', log:{dir:'both', cmd:'SLOT ARBITRATION', status:'ANTICOLLISION'}, text:'Overlapping replies collide; reader re-queries (QueryAdjust) to thin the pool.'},
+      {id:'ack',    stage:'SELECT',log:{dir:'r2t', cmd:'ACK(RN16)', status:'OK'}, text:'Reader ACKs the surviving RN16, locking in that one tag.'},
+      {id:'epc',    stage:'COMMAND', log:{dir:'t2r', cmd:'EPC (backscatter)', status:'OK'}, text:'Tag backscatters its EPC identifier.'},
+      {id:'resp',   stage:'RESPONSE',log:{dir:'r2t', cmd:'REQ_RN / READ', status:'OK'}, text:'Reader may continue with further backscatter reads of user memory.'},
+      {id:'app',    stage:'APPLICATION', log:null, text:'Inventory list / EPC is handed to the warehouse application.'},
+    ]},
+};
+
+const STAGE_ORDER = ['FIELD','POLL','DETECT','ANTI-COLLISION','SELECT','COMMAND','RESPONSE','APPLICATION'];
+
+/* ---------------- global state ---------------- */
+
+const S = {
+  mode:'beginner',
+  scenario: SCENARIOS[0],
+  family: 'NFCA',
+  distance: 62,
+  orientation: 0,
+  env:'clear',
+  tags: [], // {id,uid,label,memory:[16 blocks],locked:[bool]}
+  stepIndex: -1,
+  playing:false,
+  playTimer:null,
+  speed:700,
+  log: [],
+  selectedByte:-1,
+  selectedBlock:0,
+  authMode:'uidonly', // uidonly | authenticated
+  scopePhase:0,
+};
+
+function makeUID(n){
+  const b=[];for(let i=0;i<n;i++){b.push(Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase());}
+  return b;
+}
+function makeTag(label){
+  const uid = makeUID(S.family==='EPC'?12:7);
+  const memory = Array.from({length:16},()=> Array.from({length:4},()=>Math.floor(Math.random()*256)));
+  const locked = Array.from({length:16},(_,i)=> i>=8);
+  return {id:'T'+Math.random().toString(36).slice(2,7), uid, label, memory, locked};
+}
+
+function resetTagsForScenario(){
+  S.tags = [makeTag(S.scenario.tag)];
+  S.selectedBlock=0;S.selectedByte=-1;
+}
+
+/* ================= SCENARIO / FAMILY selection ================= */
+
+function initScenarioSelect(){
+  const sel = el('scenarioSelect');
+  sel.innerHTML = SCENARIOS.map(s=>`<option value="${s.id}">${s.icon} ${s.label}</option>`).join('');
+  sel.value = S.scenario.id;
+  sel.addEventListener('change', ()=>{
+    S.scenario = SCENARIOS.find(s=>s.id===sel.value);
+    S.family = S.scenario.family;
+    stopPlay();
+    S.stepIndex=-1;
+    S.log=[];
+    resetTagsForScenario();
+    syncAll();
+  });
+}
+
+/* ================= MODE toggle ================= */
+document.querySelectorAll('#modeGroup .hdr-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#modeGroup .hdr-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    S.mode = b.dataset.mode;
+    renderTabs();
+    syncAll();
+  });
+});
+
+/* ================= STAGE SVG ================= */
+
+function renderStageSvg(){
+  const dist = S.distance; // 0 close .. 100 far
+  const gap = 60 + dist*2.1; // px between reader and tag
+  const coupling = Math.max(0, 1 - dist/100) * Math.cos(S.orientation*Math.PI/180);
+  const powered = coupling > 0.12 || !S.scenario.passive;
+  const fieldOn = S.stepIndex>=0;
+  const nWaves = 5;
+  let waves = '';
+  if(fieldOn){
+    for(let i=0;i<nWaves;i++){
+      const r = 26 + i* (18 + (1-coupling)*4);
+      const op = fieldOn ? Math.max(0.06, 0.5*coupling*(1-i/nWaves) + 0.08) : 0;
+      waves += `<circle cx="190" cy="120" r="${r}" fill="none" stroke="var(--field-glow)" stroke-width="2" opacity="${op}">
+        <animate attributeName="r" values="${r};${r+14};${r}" dur="2.2s" repeatCount="indefinite" begin="${i*0.25}s"/>
+        <animate attributeName="opacity" values="${op};0;${op}" dur="2.2s" repeatCount="indefinite" begin="${i*0.25}s"/>
+      </circle>`;
+    }
+  }
+  const tagX = 190 + gap;
+  const tagPowerColor = powered ? 'var(--green)' : 'var(--text-faint)';
+  const envNote = S.env==='wallet' ? '+ other cards nearby' : S.env==='metal' ? '⚠ near metal (detuned)' : '';
+
+  el('stageSvg').innerHTML = `
+  <svg viewBox="0 0 620 240" width="100%" height="260" style="display:block;">
+    <!-- reader -->
+    <g>
+      <rect x="60" y="86" width="130" height="68" rx="10" fill="#111a26" stroke="var(--line)" stroke-width="1.5"/>
+      <ellipse cx="125" cy="120" rx="46" ry="30" fill="none" stroke="${fieldOn?'var(--field-glow)':'var(--line)'}" stroke-width="3"/>
+      <text x="125" y="180" text-anchor="middle" fill="var(--text-dim)" font-family="monospace" font-size="11">${S.scenario.reader}</text>
+      <text x="125" y="105" text-anchor="middle" fill="var(--text-faint)" font-family="monospace" font-size="9">READER</text>
+    </g>
+    ${waves}
+    <!-- tag -->
+    <g transform="translate(${tagX-190},0)">
+      <rect x="360" y="96" width="86" height="52" rx="8" fill="#111a26" stroke="${powered?'var(--green)':'var(--line)'}" stroke-width="1.5"
+        transform="rotate(${S.orientation} 403 122)"/>
+      <ellipse cx="403" cy="122" rx="26" ry="16" fill="none" stroke="${tagPowerColor}" stroke-width="2"
+        transform="rotate(${S.orientation} 403 122)"/>
+      <text x="403" y="172" text-anchor="middle" fill="var(--text-dim)" font-family="monospace" font-size="11">${S.scenario.tag}</text>
+      <text x="403" y="93" text-anchor="middle" fill="${powered?'var(--green)':'var(--text-faint)'}" font-family="monospace" font-size="9">${powered?'POWERED':'NOT POWERED'}</text>
+    </g>
+    ${envNote?`<text x="310" y="222" text-anchor="middle" fill="var(--orange)" font-family="monospace" font-size="10.5">${envNote}</text>`:''}
+  </svg>`;
+
+  el('powerState').textContent = fieldOn ? 'FIELD ON' : 'FIELD OFF';
+  el('powerState').className = 'badge ' + (fieldOn?'g':'o');
+  el('scenarioTag').textContent = S.scenario.label + ' · ' + FAMILIES[S.family].label.split(' ')[0];
+  el('freqBadge').textContent = (S.family==='EPC' ? '860–960 MHz · UHF' : '13.56 MHz · HF');
+  el('couplingPct').textContent = Math.round(coupling*100)+'%';
+  el('fieldBar').style.width = Math.round(coupling*100)+'%';
+}
+
+/* ================= STAGE STRIP + TRANSPORT ================= */
+
+function renderStageStrip(){
+  const steps = FAMILIES[S.family].steps;
+  const currentStage = S.stepIndex>=0 ? steps[S.stepIndex].stage : null;
+  const seen = new Set(steps.slice(0, Math.max(S.stepIndex,0)).map(s=>s.stage));
+  el('stageStrip').innerHTML = STAGE_ORDER.map(st=>{
+    let cls='stage-pill';
+    if(st===currentStage) cls+=' current';
+    else if(seen.has(st)) cls+=' done';
+    return `<span class="${cls}">${st}</span>`;
+  }).join('');
+
+  if(S.stepIndex<0){
+    el('stepLabel').textContent = 'Ready — press ▶ Play or ⏭ Step to bring the tag into the field';
+  } else {
+    const s = steps[S.stepIndex];
+    el('stepLabel').textContent = `${S.stepIndex+1}/${steps.length} — ${s.text}`;
+  }
+  el('btnPlay').textContent = S.playing ? '⏸ Pause' : '▶ Play';
+  el('protoBadge').textContent = FAMILIES[S.family].label.split(' ')[0];
+}
+
+function doStep(){
+  const steps = FAMILIES[S.family].steps;
+  if(S.stepIndex >= steps.length-1){ stopPlay(); return false; }
+  S.stepIndex++;
+  const s = steps[S.stepIndex];
+
+  if(s.id==='reqa' || s.id==='reqb' || s.id==='poll' || s.id==='inv' || s.id==='query'){
+    // simulate possible collision if >1 tag present
+    if(S.tags.length>1){
+      pushLog('r2t', s.log.cmd, 'OK');
+    } else if(s.log) pushLog(s.log.dir, s.log.cmd, s.log.status);
+  } else if(s.id==='anticol'){
+    if(S.tags.length>1){
+      pushLog('t2r','OVERLAPPING RESPONSE','COLLISION');
+      pushLog('both', FAMILIES[S.family].steps.find(x=>x.id==='anticol').log.cmd,'RESOLVED');
+      flashCollision();
+    } else if(s.log){
+      pushLog(s.log.dir, s.log.cmd, 'N/A (single tag)');
+    }
+  } else if(s.log){
+    pushLog(s.log.dir, s.log.cmd, s.log.status);
+  }
+
+  scopePulse(s.stage);
+  syncAll();
+  return true;
+}
+
+function flashCollision(){
+  document.querySelectorAll('.tagrow').forEach(r=>{
+    r.classList.add('collide');
+    setTimeout(()=>r.classList.remove('collide'), 500);
+  });
+}
+
+function pushLog(dir,cmd,status){
+  const t = (S.log.length*3 + 1).toFixed(3);
+  S.log.push({t, dir, cmd, status});
+  if(S.log.length>200) S.log.shift();
+}
+
+function stopPlay(){
+  S.playing=false;
+  if(S.playTimer){clearInterval(S.playTimer);S.playTimer=null;}
+}
+function startPlay(){
+  if(S.stepIndex>=FAMILIES[S.family].steps.length-1){S.stepIndex=-1;S.log=[];}
+  S.playing=true;
+  S.playTimer=setInterval(()=>{
+    const cont = doStep();
+    if(!cont) stopPlay();
+    renderStageStrip();
+  }, S.speed);
+}
+
+el('btnPlay').addEventListener('click', ()=>{
+  if(S.playing) stopPlay(); else startPlay();
+  renderStageStrip();
+});
+el('btnStep').addEventListener('click', ()=>{
+  stopPlay();
+  doStep();
+});
+el('btnReset').addEventListener('click', ()=>{
+  stopPlay();
+  S.stepIndex=-1;S.log=[];
+  syncAll();
+});
+el('speedSelect').addEventListener('change', e=>{
+  S.speed = parseInt(e.target.value);
+  if(S.playing){stopPlay();startPlay();}
+});
+
+/* ================= sliders / env ================= */
+
+el('distanceSlider').addEventListener('input', e=>{
+  S.distance = parseInt(e.target.value);
+  el('distVal').textContent = S.distance+'%';
+  renderStageSvg();
+});
+el('orientSlider').addEventListener('input', e=>{
+  S.orientation = parseInt(e.target.value);
+  el('orientVal').textContent = S.orientation+'°';
+  renderStageSvg();
+});
+document.querySelectorAll('#envBtns .mini-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#envBtns .mini-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    S.env = b.dataset.env;
+    if(S.env==='wallet' && S.tags.length<3){
+      S.tags.push(makeTag('Other Card'));
+      S.tags.push(makeTag('Transit Pass'));
+    } else if(S.env!=='wallet'){
+      S.tags = S.tags.slice(0,1);
+    }
+    renderStageSvg();
+    renderAntiCollisionTab();
+  });
+});
+
+/* ================= LOG TABLE ================= */
+function renderLog(){
+  el('logBody').innerHTML = S.log.slice(-60).map(r=>{
+    const dirTxt = r.dir==='r2t' ? 'Reader → Tag' : r.dir==='t2r' ? 'Tag → Reader' : 'Reader ↔ Tag';
+    const dirCls = r.dir==='r2t' ? 'dir-r2t' : r.dir==='t2r' ? 'dir-t2r' : '';
+    const stCls = (r.status==='OK'||r.status==='RESOLVED') ? 'status-ok' : (r.status==='COLLISION') ? 'status-err' : '';
+    return `<tr><td>${r.t}</td><td class="${dirCls}">${dirTxt}</td><td>${r.cmd}</td><td class="${stCls}">${r.status}</td></tr>`;
+  }).join('') || '<tr><td colspan="4" style="color:var(--text-faint)">No frames yet — start the transaction.</td></tr>';
+  el('logscroll') && (el('logscroll').scrollTop = 999999);
+  const box = document.querySelector('.logscroll'); if(box) box.scrollTop = box.scrollHeight;
+}
+
+/* ================= WAVEFORM ================= */
+function drawCanvas(id, kind){
+  const c = el(id);
+  const dpr = window.devicePixelRatio||1;
+  const w = c.clientWidth||300, h = 44;
+  c.width = w*dpr; c.height=h*dpr;
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle = kind==='carrier' ? '#3b82f6' : '#22d3ee';
+  ctx.lineWidth=1.5;
+  ctx.beginPath();
+  const active = S.stepIndex>=0;
+  const freqPx = S.family==='EPC' ? 5 : 9;
+  for(let x=0;x<w;x++){
+    let y;
+    if(!active){
+      y = h/2;
+    } else if(kind==='carrier'){
+      y = h/2 + Math.sin((x+S.scopePhase)/freqPx)*13;
+    } else {
+      // modulation: envelope changes based on bit pattern
+      const bit = Math.floor((x+S.scopePhase)/14)%2;
+      const amp = bit ? 16 : 6;
+      y = h/2 + Math.sin((x+S.scopePhase)/freqPx)*amp*0.7;
+    }
+    ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+}
+function scopePulse(){
+  S.scopeBits = Array.from({length:32},()=>Math.round(Math.random()));
+  el('bitsLine').textContent = S.stepIndex<0 ? '— no data yet —' : S.scopeBits.join('');
+}
+let scopeAnim;
+function animateScope(){
+  S.scopePhase += (S.stepIndex>=0 && (S.playing||true)) ? 1.4 : 0;
+  drawCanvas('cvCarrier','carrier');
+  drawCanvas('cvMod','mod');
+  scopeAnim = requestAnimationFrame(animateScope);
+}
+
+/* ================= TABS ================= */
+
+const TABS = [
+  {id:'overview', label:'RFID vs NFC', beginnerOK:true},
+  {id:'freq', label:'Frequency & Range', beginnerOK:true},
+  {id:'power', label:'Power & Coupling', beginnerOK:true},
+  {id:'anticol', label:'Multi-Tag & Anti-Collision', beginnerOK:true},
+  {id:'uid', label:'UID / EPC', beginnerOK:true},
+  {id:'memory', label:'Memory', beginnerOK:true},
+  {id:'ndef', label:'NDEF', beginnerOK:true},
+  {id:'auth', label:'Authentication Lab', beginnerOK:true},
+  {id:'mcu', label:'MCU / Firmware', beginnerOK:false},
+  {id:'debug', label:'Debugging Lab', beginnerOK:false},
+];
+
+let activeTab = 'overview';
+
+function renderTabs(){
+  const bar = el('tabbar');
+  bar.innerHTML = TABS.map(t=>{
+    const locked = S.mode==='beginner' && !t.beginnerOK;
+    return `<div class="tab ${t.id===activeTab?'active':''} ${locked?'locked':''}" data-tab="${t.id}" title="${locked?'Switch to Engineer mode':''}">${t.label}</div>`;
+  }).join('');
+  bar.querySelectorAll('.tab').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const t = TABS.find(x=>x.id===b.dataset.tab);
+      if(S.mode==='beginner' && !t.beginnerOK) return;
+      activeTab = t.id;
+      renderTabs();
+      renderTabContent();
+    });
+  });
+}
+
+function renderTabContent(){
+  const host = el('tabcontents');
+  host.querySelectorAll('.tabcontent').forEach(x=>x.classList.remove('active'));
+  let existing = host.querySelector('#tc-'+activeTab);
+  if(!existing){
+    existing = document.createElement('div');
+    existing.className='tabcontent';
+    existing.id = 'tc-'+activeTab;
+    host.appendChild(existing);
+  }
+  existing.classList.add('active');
+  const renderers = {
+    overview: renderOverviewTab,
+    freq: renderFreqTab,
+    power: renderPowerTab,
+    anticol: renderAntiCollisionTab,
+    uid: renderUidTab,
+    memory: renderMemoryTab,
+    ndef: renderNdefTab,
+    auth: renderAuthTab,
+    mcu: renderMcuTab,
+    debug: renderDebugTab,
+  };
+  renderers[activeTab] && renderers[activeTab](existing);
+}
+
+/* ---- Overview / RFID vs NFC ---- */
+function renderOverviewTab(host){
+  host.innerHTML = `
+    <h3 class="section-title">RFID is the broad family. NFC is one member of it.</h3>
+    <p class="helptext">NFC is not "RFID with a phone." NFC is a short-range contactless technology built primarily around the 13.56 MHz HF band, with its own defined operating modes (reader/writer, card emulation, peer-to-peer) and application layer (NDEF). RFID is the broader umbrella spanning multiple frequency ranges and system types — not every RFID tag is NFC-compatible.</p>
+    <div class="two-col">
+      <div class="card-mini">
+        <h4>RFID (broad category)</h4>
+        <p>· LF — ~125/134 kHz, short range, simple ID (access fobs, animal tags)<br>
+        · HF — 13.56 MHz, includes NFC and non-NFC HF systems<br>
+        · UHF — ~860–960 MHz region, long range, inventory/logistics<br>
+        · other specialized implementations exist</p>
+      </div>
+      <div class="card-mini">
+        <h4>NFC (specific technology)</h4>
+        <p>Sits inside the HF band at 13.56 MHz. Defines specific tag types (NFC-A/B/F/V), a data format (NDEF), and device modes: reading tags, emulating a card, and peer-to-peer exchange between two active devices.</p>
+      </div>
+    </div>
+    <div class="callout">Choosing a scenario or protocol family above drives the whole simulation — the reader/tag diagram, the transaction, the log and the waveform all stay consistent with what you pick.</div>
+    <h3 class="section-title" style="margin-top:18px;">Protocol family (drives the simulation)</h3>
+    <div class="chiprow" id="familyChips"></div>
+    <p class="helptext" id="familyDesc"></p>
+  `;
+  const chips = host.querySelector('#familyChips');
+  const avail = S.mode==='engineer' ? Object.keys(FAMILIES) : ['NFCA','NFCB','NFCV','EPC'];
+  chips.innerHTML = avail.map(k=>`<span class="chip ${k===S.family?'active':''}" data-fam="${k}">${FAMILIES[k].label.split(' ')[0]}</span>`).join('');
+  chips.querySelectorAll('.chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      S.family = c.dataset.fam;
+      stopPlay(); S.stepIndex=-1; S.log=[];
+      resetTagsForScenario();
+      syncAll();
+    });
+  });
+  host.querySelector('#familyDesc').textContent = FAMILIES[S.family].label + ' — ' + FAMILIES[S.family].steps[0].text;
+}
+
+/* ---- Frequency & Range ---- */
+function renderFreqTab(host){
+  const bands = [
+    {k:'LF', f:'125 / 134.2 kHz', range:18, note:'Typical for simple access fobs & animal ID. Very short range, robust through non-metal materials.'},
+    {k:'HF', f:'13.56 MHz', range:34, note:'NFC lives here, along with many HF RFID cards. Range is still short but supports richer data exchange.'},
+    {k:'UHF', f:'860–960 MHz (region-dependent)', range:80, note:'Backscatter-based. Can read many tags at meters of range — used for logistics & inventory.'},
+  ];
+  host.innerHTML = `
+    <h3 class="section-title">Frequency Lab</h3>
+    <p class="helptext">Values below are typical/illustrative — real range depends on antenna design, transmit power, tag sensitivity, materials and local regulations.</p>
+    ${bands.map(b=>`
+      <div class="card-mini" style="margin-bottom:10px;">
+        <h4>${b.k} &nbsp;<span class="badge">${b.f}</span></h4>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin:8px 0 4px;display:flex;align-items:center;gap:8px;">
+          <span>Reader</span>
+          <span style="flex:1;border-bottom:2px dashed var(--line);position:relative;">
+            <span style="position:absolute;left:${b.range}%;top:-9px;">📶</span>
+          </span>
+          <span>Tag</span>
+        </div>
+        <p>${b.note}</p>
+      </div>
+    `).join('')}
+    <table class="logtable" style="margin-top:6px;">
+      <thead><tr><th>Technology</th><th>Typical Frequency</th><th>Typical Use</th></tr></thead>
+      <tbody>
+        <tr><td>LF RFID</td><td>~125/134 kHz</td><td>Identification / access</td></tr>
+        <tr><td>HF RFID</td><td>13.56 MHz</td><td>Cards / tags</td></tr>
+        <tr><td>NFC</td><td>13.56 MHz</td><td>Phones / contactless</td></tr>
+        <tr><td>UHF RFID</td><td>~860–960 MHz</td><td>Inventory / logistics</td></tr>
+      </tbody>
+    </table>
+  `;
+}
+
+/* ---- Power & Coupling ---- */
+function renderPowerTab(host){
+  host.innerHTML = `
+    <h3 class="section-title">Where does the tag's power come from?</h3>
+    <div class="chiprow" id="powerChips">
+      <span class="chip ${S.scenario.passive?'active':''}" data-p="passive">Passive</span>
+      <span class="chip ${!S.scenario.passive?'active':''}" data-p="active">Active</span>
+      <span class="chip" data-p="semi">Battery-assisted (semi-passive)</span>
+    </div>
+    <div id="powerDetail"></div>
+    <h3 class="section-title" style="margin-top:18px;">Inductive coupling (HF/NFC)</h3>
+    <div class="flow" style="flex-wrap:wrap;">
+      <div class="flow-node on">Reader coil</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Magnetic field</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Tag coil</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Induced voltage</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Tag power</div>
+    </div>
+    <p class="helptext" style="margin-top:10px;">A passive HF/NFC tag has no battery — it harvests operating power directly from the reader's RF field via its coil. UHF passive tags work differently: they harvest energy from the radiated wave and communicate by backscatter (see Multi-Tag tab with UHF selected). Not every RFID tag is passive — active tags carry their own battery and transmit RF themselves, and semi-passive tags use a battery to run the chip but still backscatter or load-modulate to communicate.</p>
+  `;
+  function renderDetail(kind){
+    const map = {
+      passive:`<div class="flow" style="margin-top:12px;"><div class="flow-node on">No battery</div><div class="flow-arrow">→</div><div class="flow-node on">Harvest RF energy</div><div class="flow-arrow">→</div><div class="flow-node on">Power IC</div><div class="flow-arrow">→</div><div class="flow-node on">Logic</div><div class="flow-arrow">→</div><div class="flow-node on">Memory</div></div>`,
+      active:`<div class="flow" style="margin-top:12px;"><div class="flow-node on">Battery</div><div class="flow-arrow">→</div><div class="flow-node on">RF transmitter</div><div class="flow-arrow">→</div><div class="flow-node on">Logic</div><div class="flow-arrow">→</div><div class="flow-node on">Memory</div></div>`,
+      semi:`<div class="flow" style="margin-top:12px;"><div class="flow-node on">Battery (powers chip only)</div><div class="flow-arrow">→</div><div class="flow-node on">Logic stays awake</div><div class="flow-arrow">→</div><div class="flow-node on">Still backscatters / load-modulates to talk</div></div>`,
+    };
+    host.querySelector('#powerDetail').innerHTML = map[kind];
+  }
+  renderDetail(S.scenario.passive?'passive':'active');
+  host.querySelectorAll('#powerChips .chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      host.querySelectorAll('#powerChips .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+      renderDetail(c.dataset.p);
+    });
+  });
+}
+
+/* ---- Multi-tag & anti-collision ---- */
+function renderAntiCollisionTab(host){
+  host = host || document.querySelector('#tc-anticol');
+  if(!host) return;
+  host.innerHTML = `
+    <h3 class="section-title">Tags in the field</h3>
+    <p class="helptext">Add tags, then press ▶ Play (or ⏭ Step) on the scene above and watch the ANTI-COLLISION stage. With one tag there's nothing to resolve; with two or more, responses overlap and the reader has to arbitrate.</p>
+    <div class="mini-btns">
+      <button class="mini-btn" id="addTagBtn">+ Add tag</button>
+      <button class="mini-btn" id="rmTagBtn">− Remove last</button>
+    </div>
+    <div class="taglist" id="tagList"></div>
+    <div class="callout" id="anticolExplain"></div>
+  `;
+  renderTagList();
+  host.querySelector('#addTagBtn').addEventListener('click', ()=>{
+    if(S.tags.length<5){S.tags.push(makeTag('Tag '+(S.tags.length+1)));renderTagList();}
+  });
+  host.querySelector('#rmTagBtn').addEventListener('click', ()=>{
+    if(S.tags.length>1){S.tags.pop();renderTagList();}
+  });
+  const explain = {
+    NFCA:'NFC-A resolves collisions with bit-frame anti-collision: the reader inspects colliding bit positions and narrows a cascade of UID candidates until one remains.',
+    NFCB:'NFC-B uses time-slotted anti-collision — tags each pick a slot from WUPB/REQB parameters and answer only in their own slot.',
+    NFCF:'NFC-F (FeliCa-style) also uses time-slot responses to POLLING, spreading tag replies across slots to reduce overlap.',
+    NFCV:'ISO 15693 / NFC-V repeats INVENTORY with increasing slot counts until each tag lands in its own slot.',
+    EPC:'EPC Gen2 UHF uses slotted ALOHA: tags load a random slot counter after QUERY and backscatter RN16 when it hits zero; collisions trigger QueryAdjust to re-slot the survivors.',
+  };
+  host.querySelector('#anticolExplain').textContent = explain[S.family];
+}
+function renderTagList(){
+  const box = document.querySelector('#tagList');
+  if(!box) return;
+  box.innerHTML = S.tags.map((t,i)=>`
+    <div class="tagrow ${i===0 && S.stepIndex>=4 ? 'selected':''}">
+      <span>${t.label} · UID ${t.uid.slice(0,4).join(' ')}…</span>
+      <span class="rm" data-i="${i}">✕</span>
+    </div>`).join('');
+  box.querySelectorAll('.rm').forEach(r=>{
+    r.addEventListener('click', ()=>{
+      const i = parseInt(r.dataset.i);
+      if(S.tags.length>1){S.tags.splice(i,1);renderTagList();}
+    });
+  });
+}
+
+/* ---- UID / EPC ---- */
+function renderUidTab(host){
+  const tag = S.tags[0];
+  host.innerHTML = `
+    <h3 class="section-title">${S.family==='EPC'?'EPC':'UID'} Explorer</h3>
+    <p class="helptext">Click a byte to inspect it. This identifier is what the anti-collision and select stages use — it is a protocol-level identifier, not a secret.</p>
+    <div id="byteRow"></div>
+    <div class="callout" id="byteDetail" style="margin-top:10px;">Select a byte above.</div>
+    <div class="callout warn" style="margin-top:14px;">
+      <b>UID ≠ password ≠ cryptographic secret.</b> In systems where the identifier can be read and replayed, relying on the UID alone for access control can be insecure — see the Authentication Lab tab for a UID-only vs. authenticated comparison.
+    </div>
+  `;
+  const row = host.querySelector('#byteRow');
+  row.innerHTML = tag.uid.map((b,i)=>`<span class="bytebox ${S.selectedByte===i?'sel':''}" data-i="${i}">${b}</span>`).join('');
+  row.querySelectorAll('.bytebox').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      S.selectedByte = parseInt(b.dataset.i);
+      renderUidTab(host);
+      const d = host.querySelector('#byteDetail');
+      d.textContent = `Byte ${S.selectedByte}: 0x${tag.uid[S.selectedByte]} — part of the ${S.family==='EPC'?'96-bit-class EPC (simulated length)':'UID used during anti-collision/select'}. Individual byte meaning depends on the manufacturer/standard and is not shown here beyond position.`;
+    });
+  });
+}
+
+/* ---- Memory ---- */
+function renderMemoryTab(host){
+  const tag = S.tags[0];
+  host.innerHTML = `
+    <h3 class="section-title">Memory Explorer</h3>
+    <p class="helptext">A synthetic ${tag.memory.length}-block memory layout. Dashed orange blocks are simulated as access-protected. Click a block to inspect it in hex / ASCII / binary.</p>
+    <div class="memgrid" id="memGrid"></div>
+    <div class="memviews">
+      <div class="memview"><div class="lbl">Hex</div><div class="val" id="memHex">—</div></div>
+      <div class="memview"><div class="lbl">ASCII</div><div class="val" id="memAscii">—</div></div>
+      <div class="memview"><div class="lbl">Binary</div><div class="val" id="memBin">—</div></div>
+    </div>
+    <div class="callout" style="margin-top:12px;"><b>Reading memory ≠ authenticating a user.</b> A tag can hold an identifier, public data, application data and protected memory, and it may or may not require cryptographic authentication to unlock certain blocks — capability depends entirely on the technology and configuration.</div>
+  `;
+  const grid = host.querySelector('#memGrid');
+  grid.innerHTML = tag.memory.map((blk,i)=>`<div class="memblock ${S.selectedBlock===i?'selected':''} ${tag.locked[i]?'locked':''}" data-i="${i}">${i.toString().padStart(2,'0')}</div>`).join('');
+  function showBlock(i){
+    S.selectedBlock=i;
+    const blk = tag.memory[i];
+    host.querySelector('#memHex').textContent = blk.map(b=>b.toString(16).padStart(2,'0').toUpperCase()).join(' ') + (tag.locked[i]?'  🔒':'');
+    host.querySelector('#memAscii').textContent = blk.map(b=> (b>=32&&b<127)?String.fromCharCode(b):'·').join('');
+    host.querySelector('#memBin').textContent = blk.map(b=>b.toString(2).padStart(8,'0')).join(' ');
+    grid.querySelectorAll('.memblock').forEach(m=>m.classList.remove('selected'));
+    grid.querySelector(`[data-i="${i}"]`).classList.add('selected');
+  }
+  grid.querySelectorAll('.memblock').forEach(m=> m.addEventListener('click', ()=> showBlock(parseInt(m.dataset.i))));
+  showBlock(S.selectedBlock);
+}
+
+/* ---- NDEF ---- */
+function renderNdefTab(host){
+  const examples = {
+    url:{type:'URL', payload:'https://example.com'},
+    text:{type:'Text', payload:'Hello NFC'},
+    contact:{type:'Contact', payload:'Name / Phone / Email fields'},
+    wifi:{type:'Wi-Fi config', payload:'SSID + auth type (structured payload)'},
+  };
+  host.innerHTML = `
+    <h3 class="section-title">NDEF (NFC Data Exchange Format)</h3>
+    <div class="flow" style="margin-bottom:14px;">
+      <div class="flow-node on">NFC tag</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">NDEF message</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">NDEF record</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Record type + payload</div>
+    </div>
+    <div class="chiprow" id="ndefChips">
+      ${Object.keys(examples).map(k=>`<span class="chip ${k==='url'?'active':''}" data-k="${k}">${examples[k].type}</span>`).join('')}
+    </div>
+    <div class="two-col">
+      <div class="card-mini">
+        <h4>Raw record fields</h4>
+        <p id="ndefRaw"></p>
+      </div>
+      <div class="card-mini">
+        <h4>Human-readable</h4>
+        <p id="ndefHuman"></p>
+      </div>
+    </div>
+  `;
+  function show(k){
+    const ex = examples[k];
+    host.querySelector('#ndefRaw').innerHTML = `Header: MB/ME/CF/SR/TNF<br>Type Length: 1<br>Payload Length: ${ex.payload.length}<br>Type: "${ex.type}"<br>Payload: <span style="color:var(--cyan)">${ex.payload}</span>`;
+    host.querySelector('#ndefHuman').textContent = `A tap on this tag would offer: ${ex.type} → ${ex.payload}`;
+  }
+  host.querySelectorAll('#ndefChips .chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      host.querySelectorAll('#ndefChips .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+      show(c.dataset.k);
+    });
+  });
+  show('url');
+}
+
+/* ---- Authentication lab ---- */
+function renderAuthTab(host){
+  host.innerHTML = `
+    <h3 class="section-title">Authentication Lab <span class="badge">educational / toy crypto</span></h3>
+    <p class="helptext">This lab uses a synthetic challenge–response, not any real payment or access-control credential.</p>
+    <div class="chiprow" id="authChips">
+      <span class="chip ${S.authMode==='uidonly'?'active':''}" data-a="uidonly">UID-only door badge</span>
+      <span class="chip ${S.authMode==='authenticated'?'active':''}" data-a="authenticated">Authenticated door badge</span>
+      <span class="chip" data-a="payment">Simplified payment flow</span>
+      <span class="chip" data-a="clone">Cloning / emulation demo</span>
+    </div>
+    <div id="authBody"></div>
+  `;
+  function render(kind){
+    const body = host.querySelector('#authBody');
+    if(kind==='uidonly'){
+      body.innerHTML = `
+        <div class="flow" style="margin:10px 0;"><div class="flow-node on">Badge</div><div class="flow-arrow">→</div><div class="flow-node on">Reader reads UID</div><div class="flow-arrow">→</div><div class="flow-node on">UID in allow-list?</div><div class="flow-arrow">→</div><div class="flow-node on">Access granted</div></div>
+        <div class="callout warn"><b>Insecure pattern.</b> If a system trusts a bare UID and that identifier can be read and replayed by another device, access control built on UID-only comparison can potentially be bypassed by presenting a copy of the identifier — because the "credential" is just a number, not a proof of possessing a secret.</div>`;
+    } else if(kind==='authenticated'){
+      body.innerHTML = `
+        <div class="flow" style="margin:10px 0;flex-wrap:wrap;"><div class="flow-node on">Reader</div><div class="flow-arrow">→</div><div class="flow-node on">Auth request</div><div class="flow-arrow">→</div><div class="flow-node on">Tag</div><div class="flow-arrow">→</div><div class="flow-node on">Cryptographic response</div><div class="flow-arrow">→</div><div class="flow-node on">Reader verifies</div><div class="flow-arrow">→</div><div class="flow-node on">Granted / Denied</div></div>
+        <div class="callout good"><b>Stronger pattern.</b> The tag must prove it holds a secret key by computing a correct response to a reader-issued challenge — an eavesdropper who only sees the public UID cannot forge that response.</div>`;
+    } else if(kind==='payment'){
+      body.innerHTML = `
+        <div class="flow" style="margin:10px 0;flex-wrap:wrap;"><div class="flow-node on">Card</div><div class="flow-arrow">→</div><div class="flow-node on">Reader</div><div class="flow-arrow">→</div><div class="flow-node on">Application selection</div><div class="flow-arrow">→</div><div class="flow-node on">Security / crypto exchange</div><div class="flow-arrow">→</div><div class="flow-node on">Transaction processing</div></div>
+        <div class="callout"><b>EDUCATIONAL SIMULATION</b> — conceptual only. No real payment scheme, key material or credential format is represented here.</div>`;
+    } else {
+      body.innerHTML = `
+        <div class="flow" style="margin:10px 0;flex-wrap:wrap;"><div class="flow-node on">Original tag</div><div class="flow-arrow">→</div><div class="flow-node on">Identifier copied</div><div class="flow-arrow">→</div><div class="flow-node on">Emulated tag</div><div class="flow-arrow">→</div><div class="flow-node on">Reader</div></div>
+        <div class="callout warn">This is a conceptual illustration only — no instructions for defeating a real system are provided. The takeaway: <b>if a system trusts only a copied identifier, an attacker who can present that same identifier may be able to impersonate the original tag.</b> That's exactly why the Authenticated pattern above matters.</div>`;
+    }
+  }
+  render(S.authMode==='authenticated'?'authenticated':'uidonly');
+  host.querySelectorAll('#authChips .chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      host.querySelectorAll('#authChips .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+      if(c.dataset.a==='uidonly'||c.dataset.a==='authenticated') S.authMode=c.dataset.a;
+      render(c.dataset.a);
+    });
+  });
+}
+
+/* ---- MCU / firmware (engineer only) ---- */
+function renderMcuTab(host){
+  host.innerHTML = `
+    <h3 class="section-title">MCU ↔ NFC/RFID controller ↔ RF</h3>
+    <p class="helptext">An MCU usually does not generate the NFC/RFID air protocol itself — it talks to a dedicated reader/controller IC over a local bus, and that IC handles the RF side.</p>
+    <div class="flow" style="flex-wrap:wrap;margin-bottom:14px;">
+      <div class="flow-node on">STM32 / ESP32 / MCU</div><div class="flow-arrow">→</div>
+      <div class="flow-node on" id="busNode">SPI / I²C / UART</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">NFC/RFID reader IC</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">RF front end</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Antenna</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Tag</div>
+    </div>
+    <div class="chiprow" id="busChips">
+      <span class="chip active" data-b="SPI">SPI</span>
+      <span class="chip" data-b="I2C">I²C</span>
+      <span class="chip" data-b="UART">UART</span>
+    </div>
+    <p class="helptext" id="busNote"></p>
+    <div class="callout"><b>Critical distinction:</b> SPI/I²C/UART is the local, wired MCU-to-controller interface. It is not the NFC/RFID air interface — the wireless protocol (REQA, anti-collision, SELECT, etc.) happens between the controller IC's RF front end and the tag, over the air, at 13.56 MHz or the relevant band.</p>
+
+    <h3 class="section-title" style="margin-top:18px;">Reader firmware stack</h3>
+    <div class="flow" style="flex-direction:column;align-items:flex-start;gap:2px;">
+      ${['Application','NFC/RFID driver','Protocol state machine','Reader IC driver','SPI / I²C bus','NFC/RFID controller IC','RF front end / antenna']
+        .map(s=>`<div class="flow-node on" style="width:100%;text-align:left;">${s}</div>`).join('<div style="text-align:center;width:100%;color:var(--text-faint);">↓</div>')}
+    </div>
+
+    <h3 class="section-title" style="margin-top:18px;">RF event → interrupt → application</h3>
+    <div class="flow" style="flex-wrap:wrap;">
+      <div class="flow-node on">RF event (tag detected)</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Controller IC</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">IRQ pin</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">MCU ISR</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Driver / application</div>
+    </div>
+  `;
+  const notes = {
+    SPI:'SPI: fast, full-duplex, common for reader ICs like PN532/MFRC522-class parts. Needs SCLK/MOSI/MISO/CS.',
+    I2C:'I²C: shared two-wire bus (SDA/SCL), convenient when the MCU has many peripherals and speed requirements are modest.',
+    UART:'UART: simple asynchronous serial link, common for modules exposing a higher-level command interface over TX/RX.',
+  };
+  host.querySelector('#busNote').textContent = notes.SPI;
+  host.querySelectorAll('#busChips .chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      host.querySelectorAll('#busChips .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+      host.querySelector('#busNode').textContent = c.dataset.b;
+      host.querySelector('#busNote').textContent = notes[c.dataset.b];
+    });
+  });
+}
+
+/* ---- Debugging lab (engineer only) ---- */
+function renderDebugTab(host){
+  const cases = [
+    {k:'notdetected', label:'Tag not detected', cause:'Distance too high / poor orientation / insufficient field / incompatible technology family / interference',
+     flow:['Tag in range?','No / weak coupling','No ATQA/ATQB/response received','Reader reports: no tag found']},
+    {k:'collision', label:'Collision', cause:'Multiple tags responded to the same poll in overlapping timing',
+     flow:['REQA/QUERY sent','2+ tags respond simultaneously','Bit-level clash on the response','Anti-collision procedure engaged']},
+    {k:'authfail', label:'Authentication failed', cause:'Wrong simulated key presented, or tag/reader keys mismatched',
+     flow:['Auth request sent','Tag computes response','Reader compares to expected','Mismatch → ACCESS DENIED']},
+    {k:'crc', label:'CRC error', cause:'Frame corrupted in transit (noise, misalignment, field drop mid-frame)',
+     flow:['Frame received','CRC computed over payload','Compared to trailing CRC bytes','Mismatch → frame discarded, retry requested']},
+    {k:'invalidcmd', label:'Invalid command', cause:'Reader sent a command the tag/protocol state does not support in this state',
+     flow:['Command received','Tag checks current protocol state','Command not valid here','NAK / error response returned']},
+    {k:'removed', label:'Tag removed mid-transaction', cause:'Tag left the field before the transaction completed',
+     flow:['Field lost','Tag power lost','Communication aborted','Reader times out and recovers']},
+  ];
+  host.innerHTML = `
+    <h3 class="section-title">Debugging Lab</h3>
+    <p class="helptext">Pick a failure mode to see cause → protocol behavior → software reaction.</p>
+    <div class="chiprow" id="dbgChips">
+      ${cases.map((c,i)=>`<span class="chip ${i===0?'active':''}" data-k="${c.k}">${c.label}</span>`).join('')}
+    </div>
+    <div id="dbgBody"></div>
+  `;
+  function render(k){
+    const c = cases.find(x=>x.k===k);
+    host.querySelector('#dbgBody').innerHTML = `
+      <div class="callout"><b>Cause:</b> ${c.cause}</div>
+      <div class="flow" style="flex-wrap:wrap;margin-top:10px;">
+        ${c.flow.map((f,i)=>`<div class="flow-node ${i===c.flow.length-1?'on':''}" style="${i===c.flow.length-1?'border-color:var(--red);color:#fff;background:rgba(248,113,113,.18);':''}">${f}</div>${i<c.flow.length-1?'<div class="flow-arrow">→</div>':''}`).join('')}
+      </div>`;
+  }
+  render('notdetected');
+  host.querySelectorAll('#dbgChips .chip').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      host.querySelectorAll('#dbgChips .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+      render(c.dataset.k);
+    });
+  });
+}
+
+/* ================= SYNC ALL ================= */
+function syncAll(){
+  renderStageSvg();
+  renderStageStrip();
+  renderLog();
+  scopePulse();
+  renderTabContent();
+}
+
+/* ================= INIT ================= */
+initScenarioSelect();
+resetTagsForScenario();
+renderTabs();
+syncAll();
+animateScope();
+</script>
+</body>
+</html>
