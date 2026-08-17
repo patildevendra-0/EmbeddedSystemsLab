@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPv4 &amp; IPv6 Interactive Networking Lab</title>
+<style>
+:root{
+  --bg:#0a0e14;
+  --bg-panel:#10161f;
+  --bg-panel-2:#141c27;
+  --bg-raised:#1a2330;
+  --line:#233047;
+  --line-soft:#1a2432;
+  --text:#dbe4f0;
+  --text-dim:#8ba0bc;
+  --text-faint:#5a6d87;
+  --v4:#3b82f6;
+  --v4-glow:#5b9dff;
+  --v6:#22d3ee;
+  --green:#34d399;
+  --orange:#fb923c;
+  --yellow:#fbbf24;
+  --red:#f87171;
+  --mono:'IBM Plex Mono','SF Mono',Consolas,monospace;
+  --sans:'IBM Plex Sans',Inter,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(ellipse 900px 500px at 20% -10%, rgba(59,130,246,.10), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(34,211,238,.07), transparent 60%),
+    var(--bg);
+  color:var(--text);font-family:var(--sans);min-height:100vh;
+}
+::selection{background:rgba(59,130,246,.35);}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:#26344a;border-radius:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+header{border-bottom:1px solid var(--line);background:linear-gradient(180deg, rgba(16,22,31,.92), rgba(16,22,31,.6));backdrop-filter:blur(6px);position:sticky;top:0;z-index:50;}
+.header-inner{max-width:1440px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:radial-gradient(circle at 35% 30%, var(--v4-glow), var(--v4) 55%, #123064 100%);display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(59,130,246,.45);font-size:16px;}
+.brand-text .t1{font-weight:700;font-size:15px;letter-spacing:.3px;}
+.brand-text .t2{font-size:10.5px;color:var(--text-faint);letter-spacing:1.5px;text-transform:uppercase;font-family:var(--mono);}
+
+.hdr-group{display:flex;align-items:center;gap:6px;background:var(--bg-panel);border:1px solid var(--line);border-radius:9px;padding:3px;}
+.hdr-btn{border:none;background:transparent;color:var(--text-dim);font-family:var(--mono);font-size:11.5px;padding:7px 11px;border-radius:6px;cursor:pointer;letter-spacing:.3px;transition:.15s;white-space:nowrap;}
+.hdr-btn:hover{color:var(--text);background:var(--bg-raised);}
+.hdr-btn.active{background:var(--v4);color:#fff;box-shadow:0 0 12px rgba(59,130,246,.5);}
+.hdr-btn.active.v6{background:var(--v6);color:#03222a;box-shadow:0 0 12px rgba(34,211,238,.5);}
+.hdr-btn.active.cmp{background:linear-gradient(90deg,var(--v4),var(--v6));color:#04121c;}
+
+.wrap{max-width:1440px;margin:0 auto;padding:22px;}
+.grid{display:grid;grid-template-columns:1fr 380px;gap:18px;}
+@media (max-width:1080px){.grid{grid-template-columns:1fr;}}
+
+.panel{background:var(--bg-panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+.panel-hd{padding:12px 16px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg-panel-2);}
+.panel-hd h2{font-size:12px;margin:0;letter-spacing:1.4px;text-transform:uppercase;color:var(--text-dim);font-family:var(--mono);font-weight:600;}
+.panel-body{padding:16px;}
+
+/* ===== topology stage ===== */
+.stage-wrap{background:radial-gradient(ellipse 600px 300px at 50% 30%, rgba(59,130,246,.07), transparent 70%), #0b1119;border-bottom:1px solid var(--line-soft);padding:20px 16px 8px;position:relative;overflow:hidden;}
+.topology{display:flex;align-items:center;justify-content:space-between;gap:0;position:relative;min-height:140px;}
+.node{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;z-index:2;flex-shrink:0;width:84px;}
+.node-icon{width:54px;height:54px;border-radius:12px;background:var(--bg-raised);border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:22px;transition:.25s;}
+.node.active .node-icon{border-color:var(--yellow);box-shadow:0 0 16px rgba(251,191,36,.5);}
+.node.ok .node-icon{border-color:var(--green);box-shadow:0 0 16px rgba(52,211,153,.4);}
+.node.err .node-icon{border-color:var(--red);box-shadow:0 0 16px rgba(248,113,113,.5);}
+.node-label{font-family:var(--mono);font-size:9.5px;color:var(--text-dim);text-align:center;line-height:1.3;}
+.node-sub{font-family:var(--mono);font-size:8.5px;color:var(--text-faint);text-align:center;}
+.link{flex:1;height:2px;background:var(--line);position:relative;margin:0 -2px;top:-14px;}
+.link.active{background:var(--v4-glow);box-shadow:0 0 8px var(--v4-glow);}
+.link.active.v6{background:var(--v6);box-shadow:0 0 8px var(--v6);}
+.packet-dot{position:absolute;top:-21px;width:14px;height:14px;border-radius:4px;background:var(--v4-glow);box-shadow:0 0 10px var(--v4-glow);transition:left .5s cubic-bezier(.4,0,.2,1);z-index:3;}
+.packet-dot.v6{background:var(--v6);box-shadow:0 0 10px var(--v6);}
+
+.frame-inspect{margin-top:14px;background:var(--bg-raised);border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-family:var(--mono);font-size:11px;color:var(--text-dim);min-height:20px;}
+.frame-inspect b{color:var(--text);}
+.frame-inspect .fl{color:var(--v4-glow);}
+.frame-inspect .fl6{color:var(--v6);}
+
+.stage-strip{display:flex;flex-wrap:wrap;gap:6px;padding:12px 16px;border-bottom:1px solid var(--line-soft);background:var(--bg-panel-2);max-height:76px;overflow-y:auto;}
+.stage-pill{font-family:var(--mono);font-size:9.5px;letter-spacing:.3px;padding:5px 8px;border-radius:20px;background:var(--bg-raised);color:var(--text-faint);border:1px solid var(--line);white-space:nowrap;transition:.2s;}
+.stage-pill.done{color:var(--text-dim);}
+.stage-pill.current{background:var(--yellow);color:#241a02;border-color:var(--yellow);box-shadow:0 0 10px rgba(251,191,36,.4);}
+.stage-pill.err{background:var(--red);color:#1c0a0a;border-color:var(--red);}
+
+.transport{display:flex;align-items:center;gap:8px;padding:12px 16px;flex-wrap:wrap;}
+.tbtn{background:var(--bg-raised);border:1px solid var(--line);color:var(--text);width:34px;height:34px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;transition:.15s;}
+.tbtn:hover{border-color:var(--v4);color:var(--v4-glow);}
+.tbtn.wide{width:auto;padding:0 14px;font-family:var(--mono);font-size:11px;gap:6px;font-weight:600;}
+.speed-select{background:var(--bg-raised);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:11px;padding:8px;border-radius:8px;}
+.transport .fill{flex:1;}
+.step-label{font-family:var(--mono);font-size:11px;color:var(--text-dim);}
+
+.controls-row{display:flex;flex-wrap:wrap;gap:16px;padding:14px 16px;border-top:1px solid var(--line-soft);}
+.ctrl{flex:1;min-width:160px;}
+.ctrl label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--text-dim);margin-bottom:6px;letter-spacing:.3px;}
+.ctrl label b{color:var(--v6);font-weight:600;}
+input[type=text],input[type=number]{width:100%;background:var(--bg-raised);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:11.5px;padding:8px 9px;border-radius:7px;}
+input[type=text]:focus,input[type=number]:focus{outline:2px solid var(--v4);}
+input[type=range]{width:100%;accent-color:var(--v4);height:4px;}
+.mini-btns{display:flex;gap:6px;flex-wrap:wrap;}
+.mini-btn{background:var(--bg-raised);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:10.5px;padding:6px 10px;border-radius:7px;cursor:pointer;transition:.15s;}
+.mini-btn:hover{border-color:var(--v4);color:var(--text);}
+.mini-btn.active{background:var(--v4);color:#fff;border-color:var(--v4);}
+.mini-btn.active.v6{background:var(--v6);color:#03222a;border-color:var(--v6);}
+.mini-btn.err-active{background:var(--red);color:#fff;border-color:var(--red);}
+
+.tabbar{display:flex;gap:4px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--bg-panel-2);}
+.tab{font-family:var(--mono);font-size:10.8px;padding:8px 11px;border-radius:8px;cursor:pointer;color:var(--text-faint);border:1px solid transparent;transition:.15s;letter-spacing:.2px;}
+.tab:hover{color:var(--text-dim);background:var(--bg-raised);}
+.tab.active{color:#fff;background:var(--v4);box-shadow:0 0 10px rgba(59,130,246,.4);}
+.tab.locked{opacity:.35;cursor:not-allowed;}
+.tabcontent{display:none;padding:18px;}
+.tabcontent.active{display:block;animation:fade .25s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+
+h3.section-title{font-size:13px;margin:0 0 10px;color:var(--text);font-weight:600;}
+p.helptext{font-size:12.5px;color:var(--text-dim);line-height:1.6;margin:0 0 14px;}
+.callout{border:1px solid var(--line);background:var(--bg-raised);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--text-dim);line-height:1.6;margin:10px 0;}
+.callout.warn{border-color:rgba(248,113,113,.4);background:rgba(248,113,113,.06);color:#f3b7b7;}
+.callout.warn b{color:var(--red);}
+.callout.good{border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.06);color:#a9e9d1;}
+.callout.info6{border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.06);color:#a7eef9;}
+
+.flow{display:flex;align-items:center;gap:0;flex-wrap:wrap;font-family:var(--mono);font-size:11px;}
+.flow-node{background:var(--bg-raised);border:1px solid var(--line);border-radius:9px;padding:9px 13px;color:var(--text-dim);text-align:center;transition:.2s;}
+.flow-node.on{border-color:var(--v4);color:#fff;background:rgba(59,130,246,.16);}
+.flow-node.on6{border-color:var(--v6);color:#fff;background:rgba(34,211,238,.14);}
+.flow-arrow{color:var(--text-faint);padding:0 8px;font-size:14px;}
+
+table.datatable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+table.datatable th{text-align:left;color:var(--text-faint);font-weight:600;letter-spacing:.5px;text-transform:uppercase;font-size:9.3px;padding:6px 8px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg-panel);}
+table.datatable td{padding:6px 8px;border-bottom:1px solid var(--line-soft);color:var(--text-dim);}
+table.datatable tr:last-child td{color:var(--text);}
+table.datatable tr.clickable{cursor:pointer;}
+table.datatable tr.clickable:hover td{color:var(--text);background:rgba(59,130,246,.06);}
+table.datatable tr.hl td{background:rgba(52,211,153,.09);}
+table.datatable tr.disabled td{opacity:.4;text-decoration:line-through;}
+.scroll260{max-height:260px;overflow-y:auto;border:1px solid var(--line-soft);border-radius:10px;}
+
+.octetrow{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;}
+.octetbox{background:var(--bg-raised);border:1px solid var(--line);border-radius:8px;padding:9px 12px;text-align:center;cursor:pointer;transition:.15s;font-family:var(--mono);}
+.octetbox:hover{border-color:var(--v4);}
+.octetbox.sel{border-color:var(--v4);background:rgba(59,130,246,.15);}
+.octetbox .dec{font-size:14px;color:var(--text);font-weight:600;}
+.octetbox .bin{font-size:9.5px;color:var(--text-faint);margin-top:3px;letter-spacing:1px;}
+.octetbox .netbit{color:var(--yellow);}
+.octetbox .hostbit{color:var(--v4-glow);}
+
+.grouprow{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;}
+.groupbox{background:var(--bg-raised);border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--v6);}
+.groupbox.zero{color:var(--text-faint);}
+
+.badge{display:inline-block;font-family:var(--mono);font-size:9.5px;padding:2px 7px;border-radius:20px;background:var(--bg-raised);border:1px solid var(--line);color:var(--text-dim);margin-left:6px;}
+.badge.g{color:var(--green);border-color:rgba(52,211,153,.4);}
+.badge.o{color:var(--orange);border-color:rgba(251,146,60,.4);}
+.badge.r{color:var(--red);border-color:rgba(248,113,113,.4);}
+.badge.y{color:var(--yellow);border-color:rgba(251,191,36,.4);}
+.badge.v6{color:var(--v6);border-color:rgba(34,211,238,.4);}
+
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.chip{font-family:var(--mono);font-size:11px;padding:8px 13px;border-radius:20px;background:var(--bg-raised);border:1px solid var(--line);color:var(--text-dim);cursor:pointer;transition:.15s;}
+.chip:hover{color:var(--text);border-color:var(--v4);}
+.chip.active{background:var(--v4);color:#fff;border-color:var(--v4);}
+.chip.active.v6{background:var(--v6);color:#03222a;border-color:var(--v6);}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:700px){.two-col{grid-template-columns:1fr;}}
+.card-mini{background:var(--bg-raised);border:1px solid var(--line);border-radius:10px;padding:12px;}
+.card-mini h4{margin:0 0 6px;font-size:12px;color:var(--text);}
+.card-mini p{margin:0;font-size:11.5px;color:var(--text-dim);line-height:1.55;}
+
+.hexbyte{display:inline-flex;align-items:center;justify-content:center;background:var(--bg-raised);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-family:var(--mono);font-size:12px;margin:2px;cursor:pointer;transition:.15s;color:var(--text);}
+.hexbyte:hover{border-color:var(--v6);color:var(--v6);}
+.hexbyte.sel{background:var(--v6);color:#04262b;border-color:var(--v6);}
+
+.bitgrid{display:flex;gap:2px;font-family:var(--mono);font-size:13px;margin:8px 0;}
+.bitcell{width:22px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:var(--bg-raised);border:1px solid var(--line);}
+
+footer{max-width:1440px;margin:10px auto 40px;padding:0 22px;color:var(--text-faint);font-size:11px;font-family:var(--mono);text-align:center;}
+.right-col{display:flex;flex-direction:column;gap:18px;}
+.kvrow{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;padding:5px 0;border-bottom:1px solid var(--line-soft);color:var(--text-dim);}
+.kvrow b{color:var(--text);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-mark">🌐</div>
+      <div class="brand-text">
+        <div class="t1">IPv4 &amp; IPv6 Interactive Lab</div>
+        <div class="t2">Application → Wire → Destination</div>
+      </div>
+    </div>
+    <div class="hdr-group" id="ipverGroup">
+      <button class="hdr-btn active" data-v="v4">IPv4</button>
+      <button class="hdr-btn" data-v="v6">IPv6</button>
+      <button class="hdr-btn" data-v="cmp">Compare</button>
+    </div>
+    <div class="hdr-group" id="modeGroup">
+      <button class="hdr-btn active" data-m="beginner">Beginner</button>
+      <button class="hdr-btn" data-m="intermediate">Intermediate</button>
+      <button class="hdr-btn" data-m="engineer">Engineer</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+
+    <!-- ============ LEFT ============ -->
+    <div>
+      <div class="panel">
+        <div class="panel-hd">
+          <h2>Live Topology</h2>
+          <span class="badge" id="destBadge">Remote (via routers)</span>
+        </div>
+
+        <div class="stage-wrap">
+          <div class="topology" id="topology"></div>
+          <div class="frame-inspect" id="frameInspect">Press ▶ Send Data to watch the packet travel.</div>
+        </div>
+
+        <div class="stage-strip" id="stageStrip"></div>
+
+        <div class="transport">
+          <button class="tbtn" id="btnReset" title="Reset">⏮</button>
+          <button class="tbtn" id="btnStep" title="Step">⏭</button>
+          <button class="tbtn wide" id="btnPlay">▶ Send Data</button>
+          <select class="speed-select" id="speedSelect">
+            <option value="1800">0.5×</option>
+            <option value="900" selected>1×</option>
+            <option value="450">2×</option>
+            <option value="150">5×</option>
+          </select>
+          <div class="fill"></div>
+          <span class="step-label" id="stepLabel">Idle</span>
+        </div>
+
+        <div class="controls-row">
+          <div class="ctrl">
+            <label>Destination</label>
+            <div class="mini-btns" id="destBtns">
+              <button class="mini-btn active" data-d="local">Same subnet (local)</button>
+              <button class="mini-btn" data-d="remote">Different subnet (remote)</button>
+            </div>
+          </div>
+          <div class="ctrl">
+            <label>PC A address <span id="ipaLabel"></span></label>
+            <input type="text" id="ipaInput">
+          </div>
+          <div class="ctrl">
+            <label>PC A mask/prefix</label>
+            <input type="text" id="maskaInput">
+          </div>
+          <div class="ctrl">
+            <label>Gateway <span id="gwLabel"></span></label>
+            <input type="text" id="gwInput">
+          </div>
+          <div class="ctrl">
+            <label>TTL / Hop Limit start <b id="ttlVal">64</b></label>
+            <input type="range" id="ttlSlider" min="1" max="64" value="64">
+          </div>
+          <div class="ctrl">
+            <label>Link MTU <b id="mtuVal">1500</b></label>
+            <input type="range" id="mtuSlider" min="576" max="1500" value="1500" step="4">
+          </div>
+        </div>
+        <div class="controls-row" style="padding-top:0;">
+          <div class="ctrl" style="flex:1 1 100%;">
+            <label>Error injection</label>
+            <div class="mini-btns" id="errBtns">
+              <button class="mini-btn" data-e="none">None</button>
+              <button class="mini-btn" data-e="wrongmask">Wrong subnet mask</button>
+              <button class="mini-btn" data-e="wronggw">Wrong gateway</button>
+              <button class="mini-btn" data-e="noarp">Clear ARP/ND cache</button>
+              <button class="mini-btn" data-e="ttl1">TTL/Hop Limit too low</button>
+              <button class="mini-btn" data-e="mtu">MTU too small (send 3000B)</button>
+              <button class="mini-btn" data-e="noroute">Remove route at R1</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:18px;">
+        <div class="tabbar" id="tabbar"></div>
+        <div id="tabcontents"></div>
+      </div>
+    </div>
+
+    <!-- ============ RIGHT ============ -->
+    <div class="right-col">
+      <div class="panel">
+        <div class="panel-hd"><h2>Packet Capture</h2><span class="badge" id="capBadge">0 frames</span></div>
+        <div class="panel-body">
+          <div class="scroll260">
+            <table class="datatable" id="capTable">
+              <thead><tr><th>#</th><th>Time</th><th>Src</th><th>Dst</th><th>Proto</th><th>Info</th></tr></thead>
+              <tbody id="capBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd"><h2>Routing Table — R1</h2></div>
+        <div class="panel-body"><table class="datatable" id="rt1Table"><thead><tr><th>Dest</th><th>Prefix</th><th>Next Hop</th><th>Iface</th></tr></thead><tbody id="rt1Body"></tbody></table>
+        <p class="helptext" style="margin:8px 0 0;">Click a row to disable/enable it (simulate a missing route).</p></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd"><h2 id="cacheTitle">ARP Cache — PC A</h2></div>
+        <div class="panel-body"><table class="datatable" id="cacheTable"><thead><tr id="cacheHead"></tr></thead><tbody id="cacheBody"></tbody></table></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>EDUCATIONAL SIMULATION · Synthetic addresses, keys and topology · Not a substitute for a real packet analyzer</footer>
+
+<script>
+/* ==========================================================================
+   IPv4 & IPv6 INTERACTIVE LAB — application logic
+   Single shared state object `S` drives topology, stage strip, packet
+   capture, routing table, ARP/ND cache and every tab, so changing an
+   address/mask/gateway/MTU/TTL actually changes the simulated journey.
+========================================================================== */
+const el = id => document.getElementById(id);
+
+/* ---------------- fixed topology & addressing plan ---------------- */
+const NET = {
+  v4:{
+    lan1:'192.168.1.0/24', lan2:'192.168.2.0/24', wan:'10.0.0.0/30',
+    a:'192.168.1.10', aLocalPeer:'192.168.1.20', b:'192.168.2.20',
+    gwA:'192.168.1.1', r1wan:'10.0.0.1', r2wan:'10.0.0.2', gwB:'192.168.2.1',
+  },
+  v6:{
+    lan1:'2001:db8:1::/64', lan2:'2001:db8:2::/64', wan:'2001:db8:ffff::/64',
+    a:'2001:db8:1::10', aLocalPeer:'2001:db8:1::20', b:'2001:db8:2::20',
+    gwA:'2001:db8:1::1', r1wan:'2001:db8:ffff::1', r2wan:'2001:db8:ffff::2', gwB:'2001:db8:2::1',
+  }
+};
+const MAC = {A:'AA:00:00:00:00:0A', R1lan:'AA:00:00:00:R1:L1', R1wan:'AA:00:00:00:R1:W1',
+             R2wan:'AA:00:00:00:R2:W1', R2lan:'AA:00:00:00:R2:L2', B:'AA:00:00:00:00:0B'};
+
+const NODES = [
+  {id:'A',  icon:'🖥️', label:'PC A'},
+  {id:'SW1',icon:'🔀', label:'Switch'},
+  {id:'R1', icon:'📡', label:'Router 1'},
+  {id:'R2', icon:'📡', label:'Router 2'},
+  {id:'SW2',icon:'🔀', label:'Switch'},
+  {id:'B',  icon:'🖥️', label:'PC B'},
+];
+const LOCAL_NODES = [
+  {id:'A',  icon:'🖥️', label:'PC A'},
+  {id:'SW1',icon:'🔀', label:'Switch'},
+  {id:'B',  icon:'🖥️', label:'PC B (same subnet)'},
+];
+
+/* ---------------- global state ---------------- */
+const S = {
+  ver:'v4', mode:'beginner',
+  destMode:'local', // local | remote
+  ipa: NET.v4.a, maska:'24', gw: NET.v4.gwA,
+  ttlStart:64, mtu:1500,
+  errMode:'none',
+  arpCache:{}, ndCache:{},
+  rt1:[
+    {dest:'192.168.1.0',prefix:24,nh:'Direct',iface:'eth-lan1',enabled:true},
+    {dest:'192.168.2.0',prefix:24,nh:'10.0.0.2',iface:'eth-wan',enabled:true},
+    {dest:'0.0.0.0',prefix:0,nh:'10.0.0.2',iface:'eth-wan',enabled:true},
+  ],
+  rt1v6:[
+    {dest:'2001:db8:1::',prefix:64,nh:'Direct',iface:'eth-lan1',enabled:true},
+    {dest:'2001:db8:2::',prefix:64,nh:'2001:db8:ffff::2',iface:'eth-wan',enabled:true},
+    {dest:'::',prefix:0,nh:'2001:db8:ffff::2',iface:'eth-wan',enabled:true},
+  ],
+  steps:[], stepIndex:-1, playing:false, playTimer:null, speed:900,
+  cap:[], selectedByte:-1, selectedOctet:-1, selectedGroup:-1,
+};
+
+function curNet(){ return S.ver==='v6' ? NET.v6 : NET.v4; }
+function isV6(){ return S.ver==='v6'; }
+function ttlName(){ return isV6() ? 'Hop Limit' : 'TTL'; }
+
+/* ================= JOURNEY / STEP GENERATION ================= */
+function rtActive(){ return isV6() ? S.rt1v6 : S.rt1; }
+
+function buildJourney(){
+  const net = curNet();
+  const dest = S.destMode==='local' ? net.aLocalPeer : net.b;
+  const wrongMask = S.errMode==='wrongmask';
+  const wrongGw = S.errMode==='wronggw';
+  const noCache = S.errMode==='noarp';
+  const ttlTooLow = S.errMode==='ttl1';
+  const mtuTooSmall = S.errMode==='mtu';
+  const noRoute = S.errMode==='noroute';
+
+  // local/remote decision (based on mask; if wrongMask, force wrong verdict for remote dest)
+  let sameSubnet = S.destMode==='local';
+  if(wrongMask && S.destMode==='remote') sameSubnet = true; // host wrongly thinks remote host is local -> will fail (ARP for wrong target, no reply)
+  if(wrongMask && S.destMode==='local') sameSubnet = false; // host wrongly sends local traffic to gateway (extra unneeded hop, still basically works)
+
+  const steps = [];
+  const push = (s)=>steps.push(s);
+
+  push({node:'A', stage:'APPLICATION', title:'Application creates data', detail:`Application writes "Hello" to a socket destined for ${dest}.`});
+  push({node:'A', stage:'TCP/UDP', title:'Transport layer', detail:`TCP/UDP wraps the data into a segment/datagram with source & destination ports.`});
+  push({node:'A', stage: isV6()?'IPv6':'IPv4', title:`${isV6()?'IPv6':'IPv4'} packet built`, detail:`Src ${S.ipa} → Dst ${dest}. ${ttlName()} set to ${S.ttlStart}.`,
+        cap:{src:S.ipa,dst:dest,proto:isV6()?'IPv6':'IPv4',info:`${ttlName()}=${S.ttlStart}`}});
+  push({node:'A', stage:'ROUTING DECISION', title:'Local or remote?', detail: sameSubnet
+        ? `Destination ${dest} is on the SAME subnet as ${S.ipa}/${S.maska} → send directly.`
+        : `Destination ${dest} is NOT on the same subnet as ${S.ipa}/${S.maska} → send to default gateway ${wrongGw?'(misconfigured!) ':''}${S.gw}.`});
+
+  if(wrongGw && !sameSubnet){
+    push({node:'A', stage:'ERROR', title:'Gateway unreachable', detail:`Gateway ${S.gw} is not actually reachable / not the real router — the packet cannot leave the local network.`, err:true});
+    return steps;
+  }
+
+  const nextHopIp = sameSubnet ? dest : S.gw;
+  const cacheKey = nextHopIp;
+  const haveCache = !noCache && !!( isV6() ? S.ndCache[cacheKey] : S.arpCache[cacheKey] );
+
+  push({node:'A', stage: isV6()?'NDP':'ARP', title: isV6()?'Neighbor Discovery':'Address Resolution', detail: haveCache
+        ? `${isV6()?'Neighbor':'ARP'} cache already has ${cacheKey} → link-layer address on file. No new resolution needed.`
+        : `${isV6()?'Neighbor Solicitation / Advertisement':'ARP Request / Reply'} for ${cacheKey} — learning its MAC address.`,
+        cap: haveCache?null:{src:S.ipa,dst:cacheKey,proto:isV6()?'ICMPv6':'ARP',info:isV6()?'Neighbor Solicitation':'Who has '+cacheKey+'?'}});
+  if(!haveCache){
+    push({node:'A', stage: isV6()?'NDP':'ARP', title:'Resolution reply', detail:`${cacheKey} answers with its MAC. Cache updated.`,
+          cap:{src:cacheKey,dst:S.ipa,proto:isV6()?'ICMPv6':'ARP',info:isV6()?'Neighbor Advertisement':cacheKey+' is at MAC...'}});
+    if(isV6()) S.ndCache[cacheKey]='AA:BB:CC:00:0'+(Object.keys(S.ndCache).length+1);
+    else S.arpCache[cacheKey]='AA:BB:CC:00:0'+(Object.keys(S.arpCache).length+1);
+  }
+
+  push({node:'A', stage:'ETHERNET', title:'Ethernet frame built', detail:`Frame: ${MAC.A} → ${sameSubnet?'MAC('+dest+')':'MAC(gateway)'}. Carries the IP packet unchanged inside.`});
+
+  if(mtuTooSmall && S.mtu<3000){
+    if(isV6()){
+      push({node:'A', stage:'PMTUD', title:'Packet Too Big', detail:`Sender tried to send ~3000 bytes but link MTU is ${S.mtu}. IPv6 routers do NOT fragment in transit — an ICMPv6 "Packet Too Big" is returned and the sender must shrink the packet (Path MTU Discovery).`, err:true});
+    } else {
+      push({node:'A', stage:'FRAGMENTATION', title:'IPv4 fragmentation', detail:`~3000 bytes exceeds MTU ${S.mtu}. The packet is fragmented into multiple IPv4 fragments (Identification shared, Fragment Offset increasing, More-Fragments flag set on all but the last).`});
+    }
+  }
+
+  push({node:'SW1', stage:'SWITCH', title:'Switch relays frame', detail:'Layer-2 switch forwards the SAME Ethernet frame unchanged based on the destination MAC — it does not touch IP addresses or TTL/Hop Limit.'});
+
+  if(sameSubnet){
+    push({node:'B', stage:'ETHERNET', title:'Destination NIC receives frame', detail:`${dest} receives the frame — same MACs and same IP packet the sender built, no router involved.`});
+    push({node:'B', stage:isV6()?'IPv6':'IPv4', title:'IP layer', detail:`Destination matches local address ${dest} → pass up the stack.`});
+    push({node:'B', stage:'TCP/UDP', title:'Transport layer', detail:'Segment/datagram delivered to the correct socket.'});
+    push({node:'B', stage:'APPLICATION', title:'Application receives data', detail:'Application reads "Hello".'});
+    return steps;
+  }
+
+  // remote path continues through R1, R2
+  let ttl = S.ttlStart;
+
+  push({node:'R1', stage:'ETHERNET', title:'Router 1 receives frame', detail:`Incoming: ${MAC.A} → ${MAC.R1lan}. Ethernet header is stripped.`});
+
+  const route = noRoute
+    ? null
+    : rtActive().filter(r=>r.enabled).sort((a,b)=>b.prefix-a.prefix)[ isV6() ? 1 : 1 ]; // pick the LAN2-ish entry; simplified lookup below
+  const matched = noRoute ? null : rtActive().find(r=> r.enabled && r.dest !== (isV6()?'::':'0.0.0.0'));
+
+  if(noRoute || !matched){
+    push({node:'R1', stage:'ROUTING', title:'No matching route', detail:`Router 1's route to ${dest} has been removed. No matching entry (and no usable default) — packet is dropped.`, err:true,
+          cap:{src:S.ipa,dst:dest,proto:isV6()?'ICMPv6':'ICMP',info:'Destination Unreachable'}});
+    return steps;
+  }
+  push({node:'R1', stage:'ROUTING', title:'Routing table lookup (longest prefix match)', detail:`Destination ${dest} best matches ${matched.dest}/${matched.prefix} → next hop ${matched.nh}.`});
+
+  ttl -= 1;
+  if(ttl<=0 || ttlTooLow){
+    push({node:'R1', stage: isV6()?'HOP LIMIT':'TTL', title:`${ttlName()} expired`, detail:`${ttlName()} reached 0 at Router 1. Packet is discarded and an ICMP${isV6()?'v6':''} Time Exceeded message is sent back toward the source.`, err:true,
+          cap:{src:S.gw,dst:S.ipa,proto:isV6()?'ICMPv6':'ICMP',info:'Time Exceeded'}});
+    return steps;
+  }
+  push({node:'R1', stage: isV6()?'HOP LIMIT':'TTL', title:`${ttlName()} decremented`, detail:`${ttlName()}: ${ttl+1} → ${ttl}.`});
+  push({node:'R1', stage:'ETHERNET', title:'Router 1 builds a NEW frame', detail:`Outgoing: ${MAC.R1wan} → ${MAC.R2wan}. Source/destination IP addresses are unchanged — only the Ethernet addressing changes.`});
+
+  push({node:'R2', stage:'ETHERNET', title:'Router 2 receives frame', detail:`Incoming: ${MAC.R1wan} → ${MAC.R2wan}. Ethernet header stripped again.`});
+  const matched2 = rtActive().find(r2=> r2.enabled && r2.dest !== (isV6()?'::':'0.0.0.0') && r2.nh==='Direct') || {dest: isV6()?net.lan2.split('/')[0]:net.lan2.split('/')[0], prefix:isV6()?64:24, nh:'Direct', iface:'eth-lan2'};
+  push({node:'R2', stage:'ROUTING', title:'Routing table lookup', detail:`Destination ${dest} is directly connected on Router 2's LAN2 interface.`});
+  ttl -= 1;
+  push({node:'R2', stage: isV6()?'HOP LIMIT':'TTL', title:`${ttlName()} decremented`, detail:`${ttlName()}: ${ttl+1} → ${ttl}.`});
+
+  const haveCacheB = !noCache;
+  push({node:'R2', stage: isV6()?'NDP':'ARP', title:'Resolve destination link-layer address', detail: haveCacheB ? `Router 2 resolves ${dest}'s MAC via ${isV6()?'NDP':'ARP'} (or uses cache).` : `${isV6()?'Neighbor Discovery':'ARP'} required — no cache entry on Router 2 for ${dest}.`});
+  push({node:'R2', stage:'ETHERNET', title:'Router 2 builds a NEW frame', detail:`Outgoing: ${MAC.R2lan} → ${MAC.B}. Again, only Ethernet addressing changes; the IP packet's source and destination remain ${S.ipa} → ${dest}.`});
+
+  push({node:'SW2', stage:'SWITCH', title:'Switch relays frame', detail:'Second switch forwards the frame unchanged toward PC B.'});
+
+  push({node:'B', stage:'ETHERNET', title:'Destination NIC receives frame', detail:`PC B's NIC receives the final frame.`});
+  push({node:'B', stage:isV6()?'IPv6':'IPv4', title:'IP layer', detail:`Destination ${dest} matches PC B's own address → pass up the stack. ${ttlName()} arrived at ${ttl}.`,
+        cap:{src:S.ipa,dst:dest,proto:isV6()?'IPv6':'IPv4',info:`${ttlName()}=${ttl}`}});
+  push({node:'B', stage:'TCP/UDP', title:'Transport layer', detail:'Segment/datagram delivered to the destination socket.'});
+  push({node:'B', stage:'APPLICATION', title:'Application receives data', detail:'Application reads "Hello". Round trip understood: routing, ARP/NDP, Ethernet rewriting and TTL/Hop Limit all played a role.'});
+  return steps;
+}
+
+/* ================= RENDER: TOPOLOGY ================= */
+function renderTopology(){
+  const nodes = S.destMode==='local' ? LOCAL_NODES : NODES;
+  const box = el('topology');
+  const cur = S.stepIndex>=0 && S.steps[S.stepIndex] ? S.steps[S.stepIndex] : null;
+  let html = '';
+  nodes.forEach((n,i)=>{
+    let cls='node';
+    if(cur && cur.node===n.id) cls += cur.err ? ' err' : ' active';
+    else if(cur && nodePassed(n.id)) cls += ' ok';
+    html += `<div class="${cls}" id="node-${n.id}"><div class="node-icon">${n.icon}</div><div class="node-label">${n.label}</div><div class="node-sub">${nodeSub(n.id)}</div></div>`;
+    if(i<nodes.length-1){
+      const activeLink = cur && isLinkActive(nodes[i].id, nodes[i+1].id);
+      html += `<div class="link ${activeLink?'active':''} ${isV6()&&activeLink?'v6':''}"></div>`;
+    }
+  });
+  box.innerHTML = html;
+  positionPacketDot(nodes);
+  el('destBadge').textContent = S.destMode==='local' ? 'Local (same subnet)' : 'Remote (via routers)';
+}
+function nodeSub(id){
+  const net=curNet();
+  if(id==='A') return S.ipa;
+  if(id==='B') return S.destMode==='local'? net.aLocalPeer : net.b;
+  if(id==='R1') return isV6()? net.gwA : net.gwA;
+  if(id==='R2') return isV6()? net.gwB : net.gwB;
+  return '';
+}
+function nodePassed(id){
+  const order = (S.destMode==='local'?LOCAL_NODES:NODES).map(n=>n.id);
+  const cur = S.steps[S.stepIndex];
+  if(!cur) return false;
+  return order.indexOf(id) < order.indexOf(cur.node);
+}
+function isLinkActive(a,b){
+  const cur = S.steps[S.stepIndex];
+  if(!cur) return false;
+  const order = (S.destMode==='local'?LOCAL_NODES:NODES).map(n=>n.id);
+  const ia=order.indexOf(a), ib=order.indexOf(b), ic=order.indexOf(cur.node);
+  return ic===ia || ic===ib || ic>ia;
+}
+function positionPacketDot(nodes){
+  let dot = document.getElementById('packetDot');
+  if(!dot){
+    dot = document.createElement('div');
+    dot.id='packetDot'; dot.className='packet-dot'+(isV6()?' v6':'');
+    el('topology').appendChild(dot);
+  }
+  dot.className = 'packet-dot'+(isV6()?' v6':'');
+  const cur = S.steps[S.stepIndex];
+  if(!cur){ dot.style.opacity=0; return; }
+  dot.style.opacity=1;
+  const target = document.getElementById('node-'+cur.node);
+  if(target){
+    const boxRect = el('topology').getBoundingClientRect();
+    const tRect = target.getBoundingClientRect();
+    const left = tRect.left - boxRect.left + tRect.width/2 - 7;
+    dot.style.left = left+'px';
+  }
+}
+
+function renderFrameInspect(){
+  const cur = S.steps[S.stepIndex];
+  const box = el('frameInspect');
+  if(!cur){ box.innerHTML='Press ▶ Send Data to watch the packet travel.'; return; }
+  const cls = isV6()?'fl6':'fl';
+  box.innerHTML = `<b>${cur.stage}</b> — ${cur.title}<br><span class="${cls}">${cur.detail}</span>`;
+}
+
+/* ================= STAGE STRIP / TRANSPORT ================= */
+function renderStageStrip(){
+  el('stageStrip').innerHTML = S.steps.map((s,i)=>{
+    let cls='stage-pill';
+    if(i===S.stepIndex) cls += s.err? ' err':' current';
+    else if(i<S.stepIndex) cls+=' done';
+    return `<span class="${cls}">${s.stage}</span>`;
+  }).join('') || '<span class="stage-pill">Press play to generate the journey</span>';
+  el('btnPlay').textContent = S.playing? '⏸ Pause':'▶ Send Data';
+  const cur = S.steps[S.stepIndex];
+  el('stepLabel').textContent = cur ? `${S.stepIndex+1}/${S.steps.length} — ${cur.title}` : 'Idle';
+}
+
+function doStep(){
+  if(S.stepIndex===-1 && S.steps.length===0){ S.steps = buildJourney(); }
+  if(S.stepIndex >= S.steps.length-1){ stopPlay(); return false; }
+  S.stepIndex++;
+  const s = S.steps[S.stepIndex];
+  if(s.cap) pushCap(s.cap);
+  syncAll();
+  if(s.err) stopPlay();
+  return !s.err;
+}
+function pushCap(c){
+  S.cap.push({no:S.cap.length+1, t:(S.cap.length*0.003).toFixed(3), src:c.src, dst:c.dst, proto:c.proto, info:c.info});
+  if(S.cap.length>200) S.cap.shift();
+}
+function stopPlay(){ S.playing=false; if(S.playTimer){clearInterval(S.playTimer);S.playTimer=null;} renderStageStrip(); }
+function startPlay(){
+  if(S.stepIndex>=S.steps.length-1 || S.stepIndex===-1){ S.steps=buildJourney(); S.stepIndex=-1; S.cap=[]; }
+  S.playing=true;
+  S.playTimer=setInterval(()=>{ const cont=doStep(); if(!cont) stopPlay(); }, S.speed);
+}
+el('btnPlay').addEventListener('click', ()=>{ if(S.playing) stopPlay(); else startPlay(); });
+el('btnStep').addEventListener('click', ()=>{ stopPlay(); doStep(); });
+el('btnReset').addEventListener('click', ()=>{ stopPlay(); S.steps=[]; S.stepIndex=-1; S.cap=[]; syncAll(); });
+el('speedSelect').addEventListener('change', e=>{ S.speed=parseInt(e.target.value); if(S.playing){stopPlay();startPlay();} });
+
+/* ================= CONTROLS ================= */
+function resetAddressingForVer(){
+  const net = curNet();
+  S.ipa = net.a; S.maska = isV6()? '64':'24'; S.gw = net.gwA;
+  S.arpCache={}; S.ndCache={};
+}
+document.querySelectorAll('#ipverGroup .hdr-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#ipverGroup .hdr-btn').forEach(x=>x.classList.remove('active','v6','cmp'));
+    b.classList.add('active', b.dataset.v==='v6'?'v6':'', b.dataset.v==='cmp'?'cmp':'');
+    S.ver = b.dataset.v==='v6' ? 'v6' : (b.dataset.v==='cmp' ? 'v4' : 'v4');
+    S.compare = b.dataset.v==='cmp';
+    resetAddressingForVer();
+    stopPlay(); S.steps=[]; S.stepIndex=-1; S.cap=[];
+    syncAll();
+  });
+});
+document.querySelectorAll('#modeGroup .hdr-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#modeGroup .hdr-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    S.mode=b.dataset.m;
+    renderTabs(); syncAll();
+  });
+});
+document.querySelectorAll('#destBtns .mini-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#destBtns .mini-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    S.destMode=b.dataset.d;
+    stopPlay(); S.steps=[]; S.stepIndex=-1; S.cap=[];
+    syncAll();
+  });
+});
+document.querySelectorAll('#errBtns .mini-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#errBtns .mini-btn').forEach(x=>x.classList.remove('err-active'));
+    if(S.errMode===b.dataset.e){ S.errMode='none'; }
+    else { S.errMode=b.dataset.e; b.classList.add('err-active'); }
+    stopPlay(); S.steps=[]; S.stepIndex=-1; S.cap=[];
+    syncAll();
+  });
+});
+el('ipaInput').addEventListener('change', e=>{ S.ipa=e.target.value.trim(); stopPlay();S.steps=[];S.stepIndex=-1;S.cap=[]; syncAll(); });
+el('maskaInput').addEventListener('change', e=>{ S.maska=e.target.value.trim(); stopPlay();S.steps=[];S.stepIndex=-1;S.cap=[]; syncAll(); });
+el('gwInput').addEventListener('change', e=>{ S.gw=e.target.value.trim(); stopPlay();S.steps=[];S.stepIndex=-1;S.cap=[]; syncAll(); });
+el('ttlSlider').addEventListener('input', e=>{ S.ttlStart=parseInt(e.target.value); el('ttlVal').textContent=S.ttlStart; stopPlay();S.steps=[];S.stepIndex=-1;S.cap=[]; syncAll(); });
+el('mtuSlider').addEventListener('input', e=>{ S.mtu=parseInt(e.target.value); el('mtuVal').textContent=S.mtu; stopPlay();S.steps=[];S.stepIndex=-1;S.cap=[]; syncAll(); });
+
+/* ================= PACKET CAPTURE / ROUTING / CACHE PANELS ================= */
+function renderCapture(){
+  el('capBadge').textContent = S.cap.length+' frames';
+  el('capBody').innerHTML = S.cap.slice(-60).map(r=>`<tr><td>${r.no}</td><td>${r.t}</td><td>${r.src}</td><td>${r.dst}</td><td>${r.proto}</td><td>${r.info}</td></tr>`).join('')
+    || '<tr><td colspan="6" style="color:var(--text-faint)">No frames captured yet.</td></tr>';
+  const box=document.querySelector('.scroll260'); // first one (capture)
+}
+function renderRT(){
+  const rows = rtActive();
+  el('rt1Body').innerHTML = rows.map((r,i)=>`<tr class="clickable ${r.enabled?'':'disabled'}" data-i="${i}"><td>${r.dest}</td><td>/${r.prefix}</td><td>${r.nh}</td><td>${r.iface}</td></tr>`).join('');
+  el('rt1Body').querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      const i=parseInt(tr.dataset.i);
+      rows[i].enabled = !rows[i].enabled;
+      stopPlay(); S.steps=[]; S.stepIndex=-1; S.cap=[];
+      syncAll();
+    });
+  });
+}
+function renderCache(){
+  el('cacheTitle').textContent = (isV6()?'Neighbor Cache':'ARP Cache') + ' — PC A';
+  el('cacheHead').innerHTML = isV6() ? '<th>IPv6 Address</th><th>Link-Layer Address</th>' : '<th>IPv4 Address</th><th>MAC Address</th>';
+  const cache = isV6()? S.ndCache : S.arpCache;
+  const rows = Object.keys(cache);
+  el('cacheBody').innerHTML = rows.length ? rows.map(k=>`<tr><td>${k}</td><td>${cache[k]}</td></tr>`).join('') : '<tr><td colspan="2" style="color:var(--text-faint)">Empty — resolution will populate this during a send.</td></tr>';
+}
+
+/* ================= TABS ================= */
+const TABS = [
+  {id:'overview', label:'Main Question', lvl:'beginner'},
+  {id:'address', label:'Address Visualizer', lvl:'beginner'},
+  {id:'cidr', label:'CIDR & Subnetting', lvl:'beginner'},
+  {id:'ipv6addr', label:'IPv6 Addressing', lvl:'beginner'},
+  {id:'routing', label:'Routing & LPM', lvl:'intermediate'},
+  {id:'resolution', label:'ARP vs NDP', lvl:'intermediate'},
+  {id:'ttl', label:'TTL / Hop Limit & Traceroute', lvl:'intermediate'},
+  {id:'mtu', label:'MTU & Fragmentation', lvl:'intermediate'},
+  {id:'headercmp', label:'Header Comparison', lvl:'engineer'},
+  {id:'nat', label:'NAT', lvl:'intermediate'},
+  {id:'dualstack', label:'Dual Stack', lvl:'intermediate'},
+  {id:'troubleshoot', label:'Troubleshooting', lvl:'engineer'},
+];
+const LEVEL_RANK = {beginner:0, intermediate:1, engineer:2};
+let activeTab='overview';
+
+function renderTabs(){
+  const bar = el('tabbar');
+  bar.innerHTML = TABS.map(t=>{
+    const locked = LEVEL_RANK[t.lvl] > LEVEL_RANK[S.mode];
+    return `<div class="tab ${t.id===activeTab?'active':''} ${locked?'locked':''}" data-tab="${t.id}" title="${locked?'Switch mode to unlock':''}">${t.label}</div>`;
+  }).join('');
+  bar.querySelectorAll('.tab').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const t=TABS.find(x=>x.id===b.dataset.tab);
+      if(LEVEL_RANK[t.lvl] > LEVEL_RANK[S.mode]) return;
+      activeTab=t.id; renderTabs(); renderTabContent();
+    });
+  });
+}
+
+function renderTabContent(){
+  const host = el('tabcontents');
+  host.querySelectorAll('.tabcontent').forEach(x=>x.classList.remove('active'));
+  let node = host.querySelector('#tc-'+activeTab);
+  if(!node){ node=document.createElement('div'); node.className='tabcontent'; node.id='tc-'+activeTab; host.appendChild(node); }
+  node.classList.add('active');
+  const R = {overview:tabOverview, address:tabAddress, cidr:tabCidr, ipv6addr:tabIpv6Addr,
+             routing:tabRouting, resolution:tabResolution, ttl:tabTtl, mtu:tabMtu,
+             headercmp:tabHeaderCmp, nat:tabNat, dualstack:tabDualStack, troubleshoot:tabTroubleshoot};
+  R[activeTab] && R[activeTab](node);
+}
+
+/* ---- Overview ---- */
+function tabOverview(host){
+  host.innerHTML = `
+    <h3 class="section-title">How does my computer know where to send an IP packet?</h3>
+    <p class="helptext">Every part of this lab answers a piece of this question. Start with the topology above: pick Local vs Remote destination and press ▶ Send Data.</p>
+    <div class="flow" style="flex-wrap:wrap;margin-bottom:14px;">
+      <div class="flow-node ${isV6()?'':'on'}">Application</div><div class="flow-arrow">→</div>
+      <div class="flow-node ${isV6()?'':'on'}">TCP/UDP</div><div class="flow-arrow">→</div>
+      <div class="flow-node ${isV6()?'on6':'on'}">${isV6()?'IPv6':'IPv4'}</div><div class="flow-arrow">→</div>
+      <div class="flow-node ${isV6()?'on6':'on'}">Routing decision</div><div class="flow-arrow">→</div>
+      <div class="flow-node ${isV6()?'on6':'on'}">Next hop</div><div class="flow-arrow">→</div>
+      <div class="flow-node ${isV6()?'':'on'}">Ethernet frame</div>
+    </div>
+    <div class="two-col">
+      <div class="card-mini"><h4>Local destination</h4><p>Same subnet as the sender → the host resolves the destination's own link-layer address (ARP/NDP) and sends directly. No router needed.</p></div>
+      <div class="card-mini"><h4>Remote destination</h4><p>Different subnet → the host sends to its <b>default gateway</b>. Each router along the path makes its own routing decision and rebuilds the Ethernet frame.</p></div>
+    </div>
+    <div class="callout" style="margin-top:14px;"><b>Frame vs packet:</b> the Ethernet source/destination MAC addresses change at every hop. The IP source/destination addresses generally stay the same end-to-end across the routed path — only the ${ttlName()} field changes as it decrements.</div>
+  `;
+}
+
+/* ---- Address visualizer (IPv4) ---- */
+function tabAddress(host){
+  const parts = S.ipa.includes('.') ? S.ipa.split('.').map(Number) : [192,168,1,10];
+  host.innerHTML = `
+    <h3 class="section-title">IPv4 Address Visualizer</h3>
+    <p class="helptext">Click an octet to see decimal / binary / hex. Prefix <b>/${S.maska}</b> marks which leading bits are the network portion.</p>
+    <div class="octetrow" id="octRow"></div>
+    <div class="callout" id="octDetail">Select an octet above.</div>
+  `;
+  const maskBits = parseInt(S.maska)||24;
+  const row = host.querySelector('#octRow');
+  row.innerHTML = parts.map((p,i)=>{
+    const bin = p.toString(2).padStart(8,'0');
+    const bitsColored = bin.split('').map((b,bi)=>{
+      const globalBit = i*8+bi;
+      return `<span class="${globalBit<maskBits?'netbit':'hostbit'}">${b}</span>`;
+    }).join('');
+    return `<div class="octetbox ${S.selectedOctet===i?'sel':''}" data-i="${i}"><div class="dec">${p}</div><div class="bin">${bitsColored}</div></div>`;
+  }).join('');
+  row.querySelectorAll('.octetbox').forEach(o=>{
+    o.addEventListener('click', ()=>{
+      S.selectedOctet=parseInt(o.dataset.i);
+      tabAddress(host);
+      const p = parts[S.selectedOctet];
+      host.querySelector('#octDetail').textContent = `Octet ${S.selectedOctet}: decimal ${p} · binary ${p.toString(2).padStart(8,'0')} · hex 0x${p.toString(16).padStart(2,'0').toUpperCase()}`;
+    });
+  });
+}
+
+/* ---- CIDR & subnetting ---- */
+function tabCidr(host){
+  host.innerHTML = `
+    <h3 class="section-title">CIDR &amp; Subnet Calculator</h3>
+    <div class="controls-row" style="padding:0 0 10px;">
+      <div class="ctrl" style="min-width:220px;">
+        <label>IP address</label>
+        <input type="text" id="cidrIp" value="192.168.10.73">
+      </div>
+      <div class="ctrl">
+        <label>Prefix length <b id="cidrPrefixVal">/26</b></label>
+        <input type="range" id="cidrSlider" min="8" max="30" value="26">
+      </div>
+    </div>
+    <div id="cidrResult"></div>
+    <h3 class="section-title" style="margin-top:16px;">Bitwise AND: IP ∧ Mask = Network</h3>
+    <div id="andViz"></div>
+  `;
+  function ipToInt(ip){ const p=ip.split('.').map(Number); return ((p[0]<<24)>>>0)+(p[1]<<16)+(p[2]<<8)+p[3]; }
+  function intToIp(n){ return [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.'); }
+  function calc(){
+    const ipStr = host.querySelector('#cidrIp').value.trim();
+    const prefix = parseInt(host.querySelector('#cidrSlider').value);
+    host.querySelector('#cidrPrefixVal').textContent = '/'+prefix;
+    const parts = ipStr.split('.').map(Number);
+    if(parts.length!==4 || parts.some(p=>isNaN(p)||p<0||p>255)){
+      host.querySelector('#cidrResult').innerHTML = '<div class="callout warn">Enter a valid IPv4 address (a.b.c.d).</div>';
+      host.querySelector('#andViz').innerHTML='';
+      return;
+    }
+    const ipInt = ipToInt(ipStr);
+    const maskInt = prefix===0 ? 0 : (0xFFFFFFFF << (32-prefix))>>>0;
+    const netInt = (ipInt & maskInt)>>>0;
+    const bcastInt = (netInt | (~maskInt>>>0))>>>0;
+    const total = Math.pow(2,32-prefix);
+    const usable = prefix>=31 ? (prefix===32?1:2) : Math.max(0,total-2);
+    host.querySelector('#cidrResult').innerHTML = `
+      <table class="datatable"><tbody>
+        <tr><td>Network address</td><td>${intToIp(netInt)}</td></tr>
+        <tr><td>Subnet mask</td><td>${intToIp(maskInt)} (${maskInt.toString(2).padStart(32,'0').match(/.{1,8}/g).join('.')})</td></tr>
+        <tr><td>Broadcast address</td><td>${prefix<=30?intToIp(bcastInt):'n/a for /'+prefix}</td></tr>
+        <tr><td>Total addresses</td><td>${total}</td></tr>
+        <tr><td>Usable host addresses</td><td>${usable} ${prefix>=31?'(point-to-point / single-host special case)':''}</td></tr>
+      </tbody></table>`;
+    const ipBits = ipInt.toString(2).padStart(32,'0');
+    const maskBits = maskInt.toString(2).padStart(32,'0');
+    const netBits = netInt.toString(2).padStart(32,'0');
+    function bitrow(bits,cls){ return bits.split('').map((b,i)=>`<div class="bitcell" style="${i===prefix?'margin-left:6px;':''}${cls}">${b}</div>`).join(''); }
+    host.querySelector('#andViz').innerHTML = `
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-bottom:2px;">IP</div>
+      <div class="bitgrid">${bitrow(ipBits,'color:var(--v4-glow);')}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-bottom:2px;">MASK</div>
+      <div class="bitgrid">${bitrow(maskBits,'color:var(--yellow);')}</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-bottom:2px;">NETWORK (AND)</div>
+      <div class="bitgrid">${bitrow(netBits,'color:var(--green);border-color:var(--green);')}</div>
+      <p class="helptext" style="margin-top:8px;">Every bit where the mask is 1 is copied from the IP; every bit where the mask is 0 becomes 0. That's the AND operation, and it's exactly how a host or router finds the network address.</p>`;
+  }
+  host.querySelector('#cidrIp').addEventListener('input', calc);
+  host.querySelector('#cidrSlider').addEventListener('input', calc);
+  calc();
+}
+
+/* ---- IPv6 addressing ---- */
+function tabIpv6Addr(host){
+  host.innerHTML = `
+    <h3 class="section-title">IPv6 Address Lab</h3>
+    <div class="ctrl" style="max-width:420px;">
+      <label>IPv6 address</label>
+      <input type="text" id="v6input" value="2001:0db8:0000:0000:0000:0000:0000:0001">
+    </div>
+    <div id="v6out" style="margin-top:12px;"></div>
+    <h3 class="section-title" style="margin-top:18px;">Address types</h3>
+    <table class="datatable">
+      <thead><tr><th>Type</th><th>Range</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Global Unicast</td><td>2000::/3</td><td>Globally routable, like a public IPv4 address</td></tr>
+        <tr><td>Link-Local</td><td>fe80::/10</td><td>Local-link only, not globally routable — used for ND</td></tr>
+        <tr><td>Unique Local</td><td>fc00::/7</td><td>Private-ish addressing, not intended for the public Internet</td></tr>
+        <tr><td>Multicast</td><td>ff00::/8</td><td>One-to-many delivery; replaces IPv4 broadcast use-cases</td></tr>
+        <tr><td>Loopback</td><td>::1</td><td>The local host itself</td></tr>
+        <tr><td>Unspecified</td><td>::</td><td>"No address yet" — used e.g. before configuration</td></tr>
+      </tbody>
+    </table>
+  `;
+  function expand(addr){
+    let a = addr.trim();
+    if(a.includes('::')){
+      const [left,right] = a.split('::');
+      const lp = left? left.split(':').filter(Boolean):[];
+      const rp = right? right.split(':').filter(Boolean):[];
+      const missing = 8-lp.length-rp.length;
+      const mid = Array.from({length:missing},()=> '0');
+      a = [...lp,...mid,...rp].join(':');
+    }
+    const groups = a.split(':');
+    while(groups.length<8) groups.push('0');
+    return groups.map(g=>g.padStart(4,'0')).join(':');
+  }
+  function compress(full){
+    const groups = full.split(':').map(g=>g.replace(/^0+(?=.)/,''));
+    let bestStart=-1,bestLen=0,curStart=-1,curLen=0;
+    groups.forEach((g,i)=>{
+      if(g==='0'){ if(curStart===-1)curStart=i; curLen++; if(curLen>bestLen){bestLen=curLen;bestStart=curStart;} }
+      else { curStart=-1;curLen=0; }
+    });
+    if(bestLen>1){
+      const before = groups.slice(0,bestStart);
+      const after = groups.slice(bestStart+bestLen);
+      return before.join(':') + '::' + after.join(':');
+    }
+    return groups.join(':');
+  }
+  function classify(full){
+    const firstGroup = full.split(':')[0];
+    const v = parseInt(firstGroup,16);
+    if(full==='0000:0000:0000:0000:0000:0000:0000:0000') return 'Unspecified (::)';
+    if(full==='0000:0000:0000:0000:0000:0000:0000:0001') return 'Loopback (::1)';
+    if(firstGroup.toLowerCase().startsWith('fe8')) return 'Link-Local (fe80::/10)';
+    if(firstGroup.toLowerCase().startsWith('ff')) return 'Multicast (ff00::/8)';
+    if(v>=0xfc00 && v<=0xfdff) return 'Unique Local (fc00::/7)';
+    if(v>=0x2000 && v<=0x3fff) return 'Global Unicast (2000::/3)';
+    return 'Other / reserved range';
+  }
+  function render(){
+    let full;
+    try{ full = expand(host.querySelector('#v6input').value); }
+    catch(e){ host.querySelector('#v6out').innerHTML='<div class="callout warn">Could not parse that address.</div>'; return; }
+    const groups = full.split(':');
+    const comp = compress(full);
+    host.querySelector('#v6out').innerHTML = `
+      <div class="grouprow">${groups.map(g=>`<div class="groupbox ${g==='0000'?'zero':''}">${g}</div>`).join('')}</div>
+      <table class="datatable"><tbody>
+        <tr><td>Expanded (full)</td><td>${full}</td></tr>
+        <tr><td>Compressed</td><td>${comp}</td></tr>
+        <tr><td>Likely address type</td><td>${classify(full)}</td></tr>
+      </tbody></table>
+      <p class="helptext" style="margin-top:8px;">Zero compression ("::") may appear once per address, replacing the longest run of consecutive all-zero groups. Not every address has a compressible run.</p>`;
+  }
+  host.querySelector('#v6input').addEventListener('input', render);
+  render();
+}
+
+/* ---- Routing & LPM ---- */
+function tabRouting(host){
+  host.innerHTML = `
+    <h3 class="section-title">Routing Table &amp; Longest Prefix Match</h3>
+    <p class="helptext">Router 1's live table is shown on the right and drives the simulation. Here's a classic longest-prefix-match example, independent of the live topology:</p>
+    <table class="datatable">
+      <thead><tr><th>Route</th></tr></thead>
+      <tbody>
+        <tr><td>10.0.0.0/8</td></tr>
+        <tr><td>10.10.0.0/16</td></tr>
+        <tr><td>10.10.20.0/24</td></tr>
+        <tr><td class="hl">10.10.20.128/25 ← best match</td></tr>
+      </tbody>
+    </table>
+    <p class="helptext" style="margin-top:8px;">Destination <b>10.10.20.150</b> matches all four routes, but a router picks the one with the <b>longest matching prefix</b> — here, /25 — because it's the most specific.</p>
+    <div class="callout">Try it live: open the routing table panel on the right and click a row to disable it, then press ▶ Send Data with a remote destination to see the packet fail at Router 1.</div>
+  `;
+}
+
+/* ---- ARP vs NDP ---- */
+function tabResolution(host){
+  host.innerHTML = `
+    <h3 class="section-title">ARP vs IPv6 Neighbor Discovery</h3>
+    <div class="two-col">
+      <div class="card-mini">
+        <h4>IPv4 — ARP</h4>
+        <div class="flow" style="margin-top:8px;"><div class="flow-node on">IPv4</div><div class="flow-arrow">→</div><div class="flow-node on">ARP</div><div class="flow-arrow">→</div><div class="flow-node on">IPv4 → MAC</div></div>
+      </div>
+      <div class="card-mini">
+        <h4>IPv6 — Neighbor Discovery</h4>
+        <div class="flow" style="margin-top:8px;"><div class="flow-node on6">IPv6</div><div class="flow-arrow">→</div><div class="flow-node on6">ICMPv6 NDP</div><div class="flow-arrow">→</div><div class="flow-node on6">IPv6 → link-layer</div></div>
+      </div>
+    </div>
+    <div class="callout info6" style="margin-top:12px;"><b>IPv6 does not use ARP.</b> It resolves neighbors using ICMPv6 Neighbor Solicitation / Neighbor Advertisement messages instead, and keeps the results in a Neighbor Cache (shown on the right, replacing the ARP Cache when IPv6 is selected).</div>
+    <p class="helptext" style="margin-top:10px;">Try the "Clear ARP/ND cache" error injection above, then send data — you'll see an extra resolution step appear before the Ethernet frame is built.</p>
+  `;
+}
+
+/* ---- TTL / Hop Limit & traceroute ---- */
+function tabTtl(host){
+  host.innerHTML = `
+    <h3 class="section-title">${ttlName()} and Traceroute</h3>
+    <p class="helptext">${ttlName()} starts at ${S.ttlStart} and is decremented by one at every router. If it reaches 0, the packet is discarded and an ICMP${isV6()?'v6':''} Time Exceeded message is returned to the sender — this is exactly the mechanism traceroute exploits.</p>
+    <div class="flow" style="flex-wrap:wrap;">
+      <div class="flow-node ${isV6()?'on6':'on'}">${ttlName()}=${S.ttlStart}</div><div class="flow-arrow">→</div>
+      <div class="flow-node ${isV6()?'on6':'on'}">Router 1: ${S.ttlStart-1}</div><div class="flow-arrow">→</div>
+      <div class="flow-node ${isV6()?'on6':'on'}">Router 2: ${S.ttlStart-2}</div><div class="flow-arrow">→</div>
+      <div class="flow-node ${isV6()?'on6':'on'}">Destination</div>
+    </div>
+    <h3 class="section-title" style="margin-top:16px;">Traceroute principle</h3>
+    <table class="datatable">
+      <thead><tr><th>${ttlName()} sent</th><th>Responder</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Router 1</td><td>ICMP${isV6()?'v6':''} Time Exceeded</td></tr>
+        <tr><td>2</td><td>Router 2</td><td>ICMP${isV6()?'v6':''} Time Exceeded</td></tr>
+        <tr><td>3</td><td>Destination</td><td>Reply (e.g. Echo Reply, or a closed-port response)</td></tr>
+      </tbody>
+    </table>
+    <p class="helptext" style="margin-top:8px;">Traceroute sends packets with increasing ${ttlName()} values, one greater each round, and records who returns the "expired" error — mapping the path one hop at a time. The exact triggering packet type (ICMP echo, UDP, or TCP) varies by implementation; the ${ttlName()} expiry principle is what stays constant.</p>
+    <div class="callout">Set "TTL/Hop Limit too low" under Error Injection and send data on the Remote path to see this happen live.</div>
+  `;
+}
+
+/* ---- MTU & fragmentation ---- */
+function tabMtu(host){
+  host.innerHTML = `
+    <h3 class="section-title">MTU, Fragmentation &amp; Path MTU Discovery</h3>
+    <div class="two-col">
+      <div class="card-mini">
+        <h4>IPv4</h4>
+        <p>A 4000-byte IPv4 packet crossing a link with MTU 1500 can be fragmented — split into multiple pieces sharing an Identification value, each with a Fragment Offset and a More-Fragments flag on all but the last. Historically both the sender and routers along the path could fragment; the "don't fragment" behavior is configurable.</p>
+      </div>
+      <div class="card-mini">
+        <h4>IPv6</h4>
+        <p>Routers do <b>not</b> fragment IPv6 packets in transit. If a packet is too big for a link, the router sends back an ICMPv6 "Packet Too Big" message, and the <i>sender</i> is responsible for reducing its packet size — a process called Path MTU Discovery.</p>
+      </div>
+    </div>
+    <div class="flow" style="margin-top:14px;flex-wrap:wrap;">
+      <div class="flow-node on">Sender: packet size 1500</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Router: link MTU 1280</div><div class="flow-arrow">→</div>
+      <div class="flow-node on6">ICMPv6 Packet Too Big</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Sender reduces packet size</div>
+    </div>
+    <div class="callout" style="margin-top:12px;">Try it: set the Link MTU slider low, choose "MTU too small (send 3000B)" under Error Injection, then Send Data on IPv4 vs IPv6 to see the different behaviors.</div>
+  `;
+}
+
+/* ---- Header comparison ---- */
+function tabHeaderCmp(host){
+  const rows = [
+    ['Address size','32-bit','128-bit'],
+    ['Header','Variable length (with Options)','Fixed 40-byte base header'],
+    ['Broadcast','Supported','Not used — multicast instead'],
+    ['Neighbor resolution','ARP','NDP (ICMPv6)'],
+    ['Header checksum','Yes','No (relies on lower/upper layers)'],
+    ['Fragmentation','Host or routers, in transit','Source host only, before sending'],
+    ['TTL equivalent','TTL','Hop Limit'],
+    ['Optional data','Header Options','Extension Headers, chained via Next Header'],
+  ];
+  host.innerHTML = `
+    <h3 class="section-title">IPv4 Header vs IPv6 Header</h3>
+    <table class="datatable" id="cmpTable">
+      <thead><tr><th>Feature</th><th>IPv4</th><th>IPv6</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr class="clickable"><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody>
+    </table>
+    <h3 class="section-title" style="margin-top:16px;">Raw first byte</h3>
+    <div class="two-col">
+      <div class="card-mini">
+        <h4>IPv4 — 0x45</h4>
+        <div class="bitgrid">${'01000101'.split('').map((b,i)=>`<div class="bitcell" style="${i<4?'color:var(--yellow)':'color:var(--v4-glow)'}">${b}</div>`).join('')}</div>
+        <p style="margin-top:6px;">First 4 bits = Version (4), next 4 bits = IHL (5 → 20-byte header, no options).</p>
+      </div>
+      <div class="card-mini">
+        <h4>IPv6 — 0x60...</h4>
+        <div class="bitgrid">${'0110'.split('').map(b=>`<div class="bitcell" style="color:var(--yellow)">${b}</div>`).join('')}<div class="bitcell" style="color:var(--v6)">…</div></div>
+        <p style="margin-top:6px;">First 4 bits = Version (6); the rest of that byte plus the next flow into Traffic Class / Flow Label.</p>
+      </div>
+    </div>
+    <h3 class="section-title" style="margin-top:16px;">Extension header chain (IPv6, engineer mode)</h3>
+    <div class="flow" style="flex-wrap:wrap;">
+      <div class="flow-node on6">IPv6 base header</div><div class="flow-arrow">→</div>
+      <div class="flow-node on6">Hop-by-Hop (optional)</div><div class="flow-arrow">→</div>
+      <div class="flow-node on6">Routing (optional)</div><div class="flow-arrow">→</div>
+      <div class="flow-node on6">Fragment (optional)</div><div class="flow-arrow">→</div>
+      <div class="flow-node on6">TCP</div><div class="flow-arrow">→</div>
+      <div class="flow-node on6">Application data</div>
+    </div>
+    <p class="helptext" style="margin-top:8px;">Each header's <b>Next Header</b> field points to the type that follows — not every IPv6 packet carries extension headers at all; most ordinary traffic has none.</p>
+  `;
+}
+
+/* ---- NAT ---- */
+function tabNat(host){
+  host.innerHTML = `
+    <h3 class="section-title">NAT (Network Address Translation)</h3>
+    <div class="flow" style="flex-wrap:wrap;">
+      <div class="flow-node on">Private network<br>192.168.1.10:50000</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">NAT router</div><div class="flow-arrow">→</div>
+      <div class="flow-node on">Public network<br>203.0.113.5:40001</div>
+    </div>
+    <p class="helptext" style="margin-top:10px;">The router rewrites the source IP:port pair, keeps a translation table, and reverses the mapping for return traffic.</p>
+    <div class="callout">NAT is common in IPv4 deployments (often to share one public address among many private hosts) but it is not IPv4's fundamental purpose — it's a workaround that became widespread partly due to IPv4 address scarcity.</div>
+    <h3 class="section-title" style="margin-top:16px;">IPv6 comparison</h3>
+    <div class="two-col">
+      <div class="card-mini"><h4>IPv4</h4><p>Private address → NAT → public address.</p></div>
+      <div class="card-mini"><h4>IPv6</h4><p>Global addressing → routing (no translation needed just to make an ordinary host reachable).</p></div>
+    </div>
+    <p class="helptext" style="margin-top:8px;">IPv6's address space is large enough that hosts don't need NAT merely to obtain a globally unique address — though NAT-like mechanisms (e.g. NPTv6) still exist for specific use cases such as renumbering or multihoming.</p>
+  `;
+}
+
+/* ---- Dual stack ---- */
+function tabDualStack(host){
+  host.innerHTML = `
+    <h3 class="section-title">Dual Stack &amp; Migration</h3>
+    <div class="flow" style="flex-wrap:wrap;">
+      <div class="flow-node on">Application</div>
+    </div>
+    <div style="display:flex;gap:30px;margin:10px 0;flex-wrap:wrap;">
+      <div class="flow" style="flex-direction:column;"><div class="flow-node on">IPv4<br>192.168.1.10</div><div class="flow-arrow">↓</div><div class="flow-node on">Ethernet</div></div>
+      <div class="flow" style="flex-direction:column;"><div class="flow-node on6">IPv6<br>2001:db8::10</div><div class="flow-arrow">↓</div><div class="flow-node on6">Ethernet</div></div>
+    </div>
+    <p class="helptext">A dual-stack host runs both protocol stacks side by side, with independent addressing, routing, and neighbor resolution (ARP for IPv4, NDP for IPv6) — the application can use either, often letting the OS prefer one.</p>
+    <h3 class="section-title" style="margin-top:14px;">Transition approaches</h3>
+    <table class="datatable">
+      <tbody>
+        <tr><td>Dual Stack</td><td>Run both protocols simultaneously on the same hosts/network</td></tr>
+        <tr><td>Tunneling</td><td>Carry one protocol's packets encapsulated inside the other across a network that only supports one</td></tr>
+        <tr><td>Translation</td><td>Convert between IPv4 and IPv6 packets at a gateway so IPv4-only and IPv6-only endpoints can communicate</td></tr>
+      </tbody>
+    </table>
+    <div class="callout" style="margin-top:10px;">These are architectural strategies for coexistence during a long, gradual transition — not a specific configuration tutorial.</div>
+  `;
+}
+
+/* ---- Troubleshooting ---- */
+function tabTroubleshoot(host){
+  const checklist = ['Link','IP address','Subnet','Gateway', isV6()?'NDP':'ARP','Routing table', ttlName(),'MTU','ICMP','TCP/UDP','Application'];
+  host.innerHTML = `
+    <h3 class="section-title">Troubleshooting Lab</h3>
+    <p class="helptext">Pick an error injection on the left, then Send Data and watch which stage in the strip turns red. Work through the checklist below to reason about the cause before reading the step detail.</p>
+    <div class="chiprow">${checklist.map(c=>`<span class="chip">${c}</span>`).join('')}</div>
+    <div class="callout" id="tsResult">${lastErrorSummary()}</div>
+  `;
+}
+function lastErrorSummary(){
+  const errStep = S.steps.find(s=>s.err);
+  if(!errStep) return 'No failure captured yet in the current run — send data with an error injection active to populate this.';
+  return `Last failure: at ${errStep.node} during the ${errStep.stage} stage — "${errStep.title}." ${errStep.detail}`;
+}
+
+/* ================= SYNC ALL ================= */
+function syncControlsFromState(){
+  el('ipaInput').value = S.ipa;
+  el('maskaInput').value = S.maska;
+  el('gwInput').value = S.gw;
+  el('ipaLabel').textContent = isV6() ? '(IPv6)' : '(IPv4)';
+  el('gwLabel').textContent = isV6() ? '(IPv6)' : '(IPv4)';
+  document.querySelectorAll('#destBtns .mini-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.d===S.destMode);
+    b.classList.toggle('v6', isV6());
+  });
+}
+function syncAll(){
+  syncControlsFromState();
+  renderTopology();
+  renderFrameInspect();
+  renderStageStrip();
+  renderCapture();
+  renderRT();
+  renderCache();
+  renderTabContent();
+}
+
+/* ================= INIT ================= */
+renderTabs();
+syncAll();
+</script>
+</body>
+</html>
